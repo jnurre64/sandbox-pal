@@ -3411,163 +3411,6 @@ git commit -m "feat(skills): validate NTFS ACL on config.env (Windows)"
 - Async mode, `/pal-status`, `/pal-logs`, `/pal-cancel`, `/pal-revise` — land in Phases 5 and 6
 - OS-native credential stores (macOS Keychain, Windows Credential Manager, Linux `pass`) — Phase 7 deferred
 
----
-
-### Phase 8 resume context (2026-04-19) — delete this block once Phase 8 is fully complete
-
-Phase 8 execution was partially completed in one Claude Code session; the remainder (live validation + tag) requires a fresh session to pick up newly-exported env vars. Full recap below.
-
-#### What's already done (all committed on `main`)
-
-| Commit | Task | Notes |
-|---|---|---|
-| `edf926a` | 8.1 Step 1+2 | Wrote `docs/install.md`, committed |
-| `74e416f` | 8.2 | Per-repo `.pal/config.env.example` |
-| `dff8386` | 8.3 | `scripts/diff-upstream.sh` (shellcheck clean, +x) |
-| `3cd8a39` | 8.4 | README cross-check — added "What it does" / "Getting started" / "Relationship to `claude-pal-action`"; dropped stale `[--async]` from the pal-implement entry |
-| `7a40c52` | Doc hardening | Added "keep tokens out of chat" callouts + SSH vs local-browser sub-paths to `docs/install.md` and `commands/pal-setup.md` |
-
-Prereqs that passed before starting Phase 8: bats 6/6 (2 integration skips expected), shellcheck clean (`lib/*.sh`, `image/opt/pal/**/*.sh`, `image/opt/pal/entrypoint.sh`), `claude plugin validate` green.
-
-#### Credential prep (Task 8.1 Step 3) — done
-
-Verified via count / length / public-prefix probe against `~/.bashrc` (no value ever displayed to chat):
-
-- `CLAUDE_CODE_OAUTH_TOKEN` — 1 line, 108 chars, prefix `sk-ant-oat01-` ✓
-- `GH_TOKEN` — 1 line, alias value `$GITHUB_TOKEN` (expands at shell load) ✓
-- `ANTHROPIC_API_KEY` — intentionally unset (OAuth chosen; preflight requires exactly one) ✓
-- Pennyworth-bot PAT access to `Frightful-Games/recipe-manager-demo` confirmed via `gh issue list`
-
-The `GH_TOKEN="$GITHUB_TOKEN"` alias was appended to `~/.bashrc` by this session (see lines near the bottom); `GITHUB_TOKEN` itself was pre-existing at line 122 and was not touched.
-
-#### What's still pending
-
-- **Task 8.1 Step 4** — live end-to-end validation (blocked on new Claude Code session; see script below)
-- **Task 8.5** — CHANGELOG + v0.4.0 tag (blocked on Step 4)
-
-#### Why a new session is required
-
-Claude Code inherits its env once from the parent login shell at process start. Any new exports added to `~/.bashrc` AFTER the Claude Code session launched are not visible to the Bash tool even after `source ~/.bashrc` — Ubuntu's default `~/.bashrc` has an early-exit guard at lines 6–9 (`case $- in *i*) ;; *) return;; esac`) that bails when not interactive, so the export lines below the guard never execute. Only a fresh Claude Code session, launched from an interactive login shell that sourced `~/.bashrc` in full, gets the new env.
-
-#### Gotchas and ops notes learned in the prior session (for future Phase 8 work)
-
-1. **`claude setup-token` needs a raw TTY.** Cannot run it through Claude's Bash tool (`Ink / raw mode not supported`). Must run in a real terminal outside any Claude Code session. On SSH without a local browser, `setup-token` prints a URL to stdout — open that URL in the browser on the machine that *does* have a GUI, authorize there, and the token prints back in the SSH terminal. `docs/install.md` and `commands/pal-setup.md` now describe both the local-browser and SSH-headless paths explicitly.
-2. **Don't `Read` or `Grep` `~/.bashrc` with content output** — it leaks the token into Claude's context. Use the safe probe pattern:
-   ```bash
-   for v in CLAUDE_CODE_OAUTH_TOKEN ANTHROPIC_API_KEY GH_TOKEN; do
-     count=$(grep -c "^export ${v}=" ~/.bashrc || true)
-     if [ "$count" -gt 0 ]; then
-       line=$(grep "^export ${v}=" ~/.bashrc | tail -1)
-       val="${line#*=}"; val="${val#\"}"; val="${val%\"}"
-       # Prefix is public format metadata (sk-ant-oat01- etc.), not secret
-       echo "${v}: count=${count} length=${#val} prefix=${val:0:13}"
-     fi
-   done
-   ```
-3. **Token-handling slip from the prior session.** A stale placeholder value briefly living at line 130 of `~/.bashrc` was captured in Claude's context via a content-Grep before being corrected. The correct `sk-ant-oat01-` token replaced it. The stale value was not a real token and never auth'd anywhere, but if any residual paranoia about it exists, rotating the live token with one more `claude setup-token` run is cheap.
-4. **Install docs are now the canonical source.** `docs/install.md` + `commands/pal-setup.md` contain the accurate token-handling story; this resume block is just a tactical pointer for the next session.
-
-#### Next-session live-validation script (Task 8.1 Step 4)
-
-Execute the steps in order in a fresh Claude Code session.
-
-**0. Host-shell sanity check** (ordinary terminal, BEFORE launching Claude Code):
-
-```bash
-cd ~/repos/claude-pal && git status                        # clean working tree
-git log --oneline -6 | grep -E '7a40c52|3cd8a39|dff8386|74e416f|edf926a' | wc -l
-# Expect: 5
-
-for v in CLAUDE_CODE_OAUTH_TOKEN GH_TOKEN GITHUB_TOKEN; do
-  c=$(grep -c "^export ${v}=" ~/.bashrc || true)
-  echo "${v}: count=${c}"
-done
-# Expect all three with count=1
-
-gh auth status
-GH_TOKEN="$GITHUB_TOKEN" gh issue list --repo Frightful-Games/recipe-manager-demo --limit 1
-docker info >/dev/null && echo 'docker ok'
-```
-
-If anything fails, stop and debug before proceeding.
-
-**1. Confirm container image is fresh:**
-
-```bash
-cd ~/repos/claude-pal && ./scripts/build-image.sh
-docker images claude-pal
-```
-
-**2. Prepare a dispatchable plan.** The pipeline needs a working directory containing `docs/superpowers/plans/*.md`. The `pal-plan` skill picks the most recent `.md` under that path. This plan file (the one you're reading) must NOT be the one used — a pal run targeting its own spec is recursive and wrong. Steps:
-
-```bash
-# Clone the demo repo locally if not already
-test -d ~/repos/recipe-manager-demo || git clone https://github.com/Frightful-Games/recipe-manager-demo.git ~/repos/recipe-manager-demo
-cd ~/repos/recipe-manager-demo
-mkdir -p docs/superpowers/plans
-# Create a minimal throwaway plan — enough to exercise the pipeline end-to-end
-cat > docs/superpowers/plans/2026-04-19-pal-smoketest.md <<'EOF'
-# claude-pal v0.4 smoke test
-
-Trivial change to validate the local dispatch pipeline.
-
-## Task 1: Append a line to README.md
-
-- [ ] **Step 1:** Append the line `> claude-pal v0.4 smoke test (2026-04-19)` to the end of `README.md`. No other changes.
-- [ ] **Step 2:** If no `README.md` exists, create one containing only that line.
-
-## Acceptance
-
-- A PR is opened adding exactly the line above.
-EOF
-git checkout -b pal-smoketest-plan 2>/dev/null || true
-git add docs/superpowers/plans/2026-04-19-pal-smoketest.md
-# Do NOT push yet — pal-plan will post this as a GitHub issue, not commit it
-```
-
-(If the user prefers to test against an existing plan or pre-existing issue, skip the plan-file creation and pass the issue number directly in step 4.)
-
-**3. Launch a fresh Claude Code session:**
-
-```bash
-cd ~/repos/recipe-manager-demo
-claude --plugin-dir ~/repos/claude-pal
-# Optional: include superpowers plugin if you also want /claude-pal:pal-brainstorm
-# claude --plugin-dir ~/repos/claude-pal --plugin-dir <path-to-superpowers>
-```
-
-Inside the session, sanity-check the plugin load:
-
-```
-/plugin     # should list claude-pal
-/skills     # should show pal-plan and pal-implement
-```
-
-**4. Publish the plan as a GitHub issue:**
-
-```
-/claude-pal:pal-plan
-```
-
-Expected: skill finds `docs/superpowers/plans/2026-04-19-pal-smoketest.md`, posts it as a new issue on `Frightful-Games/recipe-manager-demo`, prints the issue URL + number. Capture the issue number.
-
-**5. Dispatch the container against that issue:**
-
-```
-/claude-pal:pal-implement <issue-number>
-```
-
-Expected pipeline: preflight passes → container launches → adversarial plan review → TDD implement → post-impl review (retry once on concerns) → branch push + PR opened. The skill prints the PR URL on success.
-
-**6. Iterate on rough edges, if any.** If the install guide is unclear at any step, or a skill / library error message is confusing, return to the host shell, fix it in `docs/install.md` and/or the relevant `lib/*.sh` / `skills/*/SKILL.md` / `commands/*.md`, commit, and re-run the failing step. Do not mark 8.1 Step 4 complete until a real merge-ready PR exists on `Frightful-Games/recipe-manager-demo`.
-
-**7. Proceed to Task 8.5** once the PR is open — CHANGELOG + version bump + `v0.4.0` tag.
-
-#### Open question for user before resume
-
-The proposed smoke-test plan in step 2 is trivial ("add one line to README"). If there's a more meaningful dispatchable plan you'd rather use (existing issue number on `Frightful-Games/recipe-manager-demo`, or a different plan file already in flight), let me know before the resume. Otherwise I'll use the one-liner above.
-
----
 
 ### Task 8.1: Install guide
 
@@ -3754,7 +3597,7 @@ git add docs/install.md
 git commit -m "docs: install guide for v0.4 (env-passthrough, sync-only)"
 ```
 
-- [ ] **Step 3: Credential prep for the live test**
+- [x] **Step 3: Credential prep for the live test**
 
 Per user memory (`reference_github_finegrained_pat_collaborator.md`), the pennyworth-bot PAT is already exported in `~/.bashrc` — but under the name `GITHUB_TOKEN`, not `GH_TOKEN`. That var is load-bearing for the user's MCP github server, interactive `gh` for Frightful-Games repos, and the bot systemd service; do NOT rename or remove it. Add an alias line so claude-pal sees what it expects while everything else keeps working:
 
@@ -3794,7 +3637,7 @@ GH_TOKEN="$GITHUB_TOKEN" gh issue list --repo Frightful-Games/recipe-manager-dem
 
 If that call 404s, stop and tell the user to add the repo to the PAT's access list before proceeding — do not attempt any guessing / retries.
 
-- [ ] **Step 4: Live validation** (the point of running Phase 8 now)
+- [x] **Step 4: Live validation** (the point of running Phase 8 now)
 
 Open a fresh `claude --plugin-dir ~/repos/claude-pal` session (or `--plugin-dir ~/repos/claude-pal --plugin-dir <path-to-superpowers>` to include the `superpowers` plugin for `/claude-pal:pal-brainstorm`). Follow `docs/install.md` end-to-end against `Frightful-Games/recipe-manager-demo` using the credentials prepared in Step 3. Acceptance criteria:
 
@@ -3812,7 +3655,7 @@ Under the env-passthrough redesign (Task 4.6), there is no plugin-level `config.
 **Files:**
 - Create: `~/repos/claude-pal/.pal/config.env.example`
 
-- [ ] **Step 1: Write `.pal/config.env.example`**
+- [x] **Step 1: Write `.pal/config.env.example`**
 
 ```bash
 mkdir -p ~/repos/claude-pal/.pal
@@ -3846,7 +3689,7 @@ cat > ~/repos/claude-pal/.pal/config.env.example <<'EOF'
 EOF
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 cd ~/repos/claude-pal
@@ -3859,7 +3702,7 @@ git commit -m "docs: add per-repo .pal/config.env example (non-secret)"
 **Files:**
 - Create: `~/repos/claude-pal/scripts/diff-upstream.sh`
 
-- [ ] **Step 1: Write diff-upstream.sh**
+- [x] **Step 1: Write diff-upstream.sh**
 
 ```bash
 cat > ~/repos/claude-pal/scripts/diff-upstream.sh <<'EOF'
@@ -3907,7 +3750,7 @@ EOF
 chmod +x ~/repos/claude-pal/scripts/diff-upstream.sh
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 cd ~/repos/claude-pal
@@ -3922,11 +3765,11 @@ The README was already expanded in Task 4.6 with the auth section, ToS note, plu
 **Files:**
 - Modify: `~/repos/claude-pal/README.md`
 
-- [ ] **Step 1: Diff README vs install guide, fix any drift**
+- [x] **Step 1: Diff README vs install guide, fix any drift**
 
 Compare the auth section in `README.md` to the "Export credentials in your shell profile" section in `docs/install.md`. They must agree on: env var names, shell profile file conventions, OAuth-vs-API-key wording, ToS note. If they disagree, update README to match the install guide.
 
-- [ ] **Step 2: Add "What it does" and "Getting started" sections to README**
+- [x] **Step 2: Add "What it does" and "Getting started" sections to README**
 
 Append (above the existing "Authentication" section):
 
@@ -3953,7 +3796,7 @@ See [`docs/install.md`](docs/install.md).
 Sibling project. `claude-pal-action` (formerly `claude-agent-dispatch`) runs the same pipeline shape on self-hosted GitHub Actions runners for team / shared use. claude-pal is personal, local, and triggered from a Claude Code session rather than GitHub labels. claude-pal vendors the review-gate prompts and orchestration library from upstream — see `UPSTREAM.md`.
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 cd ~/repos/claude-pal
@@ -3969,7 +3812,7 @@ Ships the partial release milestone: core flow (plan → sync implement → PR) 
 - Create: `~/repos/claude-pal/CHANGELOG.md`
 - Update: `~/repos/claude-pal/.claude-plugin/plugin.json` — bump `version` from `0.1.0` to `0.4.0`
 
-- [ ] **Step 1: Write CHANGELOG**
+- [x] **Step 1: Write CHANGELOG**
 
 ```markdown
 # Changelog
@@ -4001,11 +3844,11 @@ First dogfood-ready release. Ships the core flow from an ideation session to an 
 - OS-native credential stores — macOS Keychain, Windows Credential Manager, Linux `pass` (Phase 7, deferred)
 ```
 
-- [ ] **Step 2: Bump plugin version**
+- [x] **Step 2: Bump plugin version**
 
 Update `.claude-plugin/plugin.json` `version` field from `"0.1.0"` to `"0.4.0"`. Revalidate the manifest: `claude plugin validate ~/repos/claude-pal`.
 
-- [ ] **Step 3: Tag v0.4.0**
+- [x] **Step 3: Tag v0.4.0**
 
 ```bash
 cd ~/repos/claude-pal
