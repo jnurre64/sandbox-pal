@@ -172,3 +172,50 @@ pal_launch_async() {
     echo "  Status: /pal-status $run_id"
     echo "  Logs:   /pal-logs $run_id --follow"
 }
+
+pal_cancel_run() {
+    local run_id="$1"
+    local run_dir
+    run_dir=$(pal_run_dir "$run_id")
+    local cid_file="$run_dir/container_id"
+
+    if [ ! -f "$cid_file" ]; then
+        echo "pal: no container_id recorded for run $run_id" >&2
+        return 1
+    fi
+
+    local cid
+    cid=$(cat "$cid_file")
+
+    if ! docker ps --filter "id=$cid" --format '{{.ID}}' 2>/dev/null | grep -q .; then
+        echo "pal: container $cid not running" >&2
+        return 1
+    fi
+
+    echo "pal: sending SIGTERM to $cid (grace 10s)"
+    docker stop --time 10 "$cid" > /dev/null || true
+
+    # Write a cancelled status
+    cat > "$run_dir/status.json" <<EOF_CANCEL
+{
+  "phase": "cancelled",
+  "outcome": "cancelled",
+  "failure_reason": "user_cancelled",
+  "pr_number": null,
+  "pr_url": null,
+  "commits": [],
+  "review_concerns_addressed": [],
+  "review_concerns_unresolved": []
+}
+EOF_CANCEL
+
+    # Release lock if meta exists
+    if [ -f "$run_dir/launch_meta.json" ]; then
+        local repo number
+        repo=$(jq -r .repo "$run_dir/launch_meta.json")
+        number=$(jq -r '.issue_number // .pr_number' "$run_dir/launch_meta.json")
+        pal_release_lock "$repo" "$number"
+    fi
+
+    echo "pal: run $run_id cancelled"
+}
