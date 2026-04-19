@@ -124,7 +124,18 @@ else
     exit 1
 fi
 
-# (Tasks 2.5–2.11 add pipeline phases)
+if [ "$EVENT_TYPE" = "implement" ]; then
+    STATUS_PHASE="adversarial_review"
+    AGENT_ADVERSARIAL_PLAN_REVIEW="${AGENT_ADVERSARIAL_PLAN_REVIEW:-true}"
+    AGENT_ALLOWED_TOOLS_TRIAGE="${AGENT_ALLOWED_TOOLS_TRIAGE:-Read,Glob,Grep,Bash(ls *),Bash(git log *),Bash(git diff *),Bash(git show *),Bash(echo *)}"
+    AGENT_MODEL_ADVERSARIAL_PLAN="${AGENT_MODEL_ADVERSARIAL_PLAN:-}"
+    if ! run_adversarial_plan_review; then
+        # review-gates.sh sets STATUS_OUTCOME and STATUS_FAILURE_REASON on failure modes
+        exit 1
+    fi
+fi
+
+# (Tasks 2.7–2.11 add pipeline phases)
 
 # Placeholder for now so the skeleton runs to completion
 STATUS_OUTCOME="success"

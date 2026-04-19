@@ -68,7 +68,7 @@ run_adversarial_plan_review() {
 
     log "Running adversarial plan review..."
     local prompt
-    prompt=$(load_prompt "adversarial-plan" "${AGENT_PROMPT_ADVERSARIAL_PLAN}")
+    prompt=$(load_prompt "adversarial-plan" "${AGENT_PROMPT_ADVERSARIAL_PLAN:-}")
 
     local result
     result=$(run_claude "$prompt" "$AGENT_ALLOWED_TOOLS_TRIAGE" "$AGENT_MODEL_ADVERSARIAL_PLAN")
@@ -157,7 +157,7 @@ run_post_impl_review() {
 
     log "Running post-implementation review..."
     local prompt
-    prompt=$(load_prompt "post-impl-review" "${AGENT_PROMPT_POST_IMPL_REVIEW}")
+    prompt=$(load_prompt "post-impl-review" "${AGENT_PROMPT_POST_IMPL_REVIEW:-}")
 
     local result
     result=$(run_claude "$prompt" "$AGENT_ALLOWED_TOOLS_TRIAGE" "$AGENT_MODEL_POST_IMPL_REVIEW")
@@ -231,7 +231,7 @@ Retries are disabled. Please review the branch manually." 2>/dev/null || true
     export AGENT_REVIEW_CONCERNS="$POST_IMPL_REVIEW_CONCERNS"
 
     local prompt
-    prompt=$(load_prompt "post-impl-retry" "${AGENT_PROMPT_POST_IMPL_RETRY}")
+    prompt=$(load_prompt "post-impl-retry" "${AGENT_PROMPT_POST_IMPL_RETRY:-}")
 
     local result
     result=$(run_claude "$prompt" "$impl_tools" "$AGENT_MODEL_POST_IMPL_RETRY")
@@ -245,7 +245,7 @@ Retries are disabled. Please review the branch manually." 2>/dev/null || true
     retry_end_sha=$(git -C "$WORKTREE_DIR" rev-parse HEAD 2>/dev/null || echo "")
 
     # Re-run tests if configured
-    if [ -n "$AGENT_TEST_COMMAND" ]; then
+    if [ -n "${AGENT_TEST_COMMAND:-}" ]; then
         if [ -n "${AGENT_TEST_SETUP_COMMAND:-}" ]; then
             (cd "$WORKTREE_DIR" && eval "$AGENT_TEST_SETUP_COMMAND") 2>&1 || log "WARN: Test setup command exited with non-zero (continuing)"
         fi
