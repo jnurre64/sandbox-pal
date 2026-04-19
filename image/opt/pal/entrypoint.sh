@@ -90,6 +90,8 @@ apply_firewall "$PAL_HOME/allowlist.yaml" || {
 
 # shellcheck source=/dev/null
 . "$LIB_DIR/worktree.sh"
+# shellcheck source=/dev/null
+. "$LIB_DIR/fetch-context.sh"
 
 STATUS_PHASE="cloning"
 setup_worktree "$REPO" "$NUMBER" "$EVENT_TYPE" || {
@@ -98,7 +100,28 @@ setup_worktree "$REPO" "$NUMBER" "$EVENT_TYPE" || {
 }
 
 STATUS_PHASE="fetching_context"
-# (Task 2.4 adds issue/plan fetching)
+if [ "$EVENT_TYPE" = "implement" ]; then
+    set +e
+    fetch_issue_context "$REPO" "$NUMBER"
+    ctx_rc=$?
+    set -e
+    if [ "$ctx_rc" -eq 2 ]; then
+        STATUS_FAILURE_REASON="no_plan_found"
+        exit 1
+    elif [ "$ctx_rc" -ne 0 ]; then
+        STATUS_FAILURE_REASON="issue_fetch_failed"
+        exit 1
+    fi
+elif [ "$EVENT_TYPE" = "revise" ]; then
+    fetch_pr_context "$REPO" "$NUMBER" || {
+        STATUS_FAILURE_REASON="pr_fetch_failed"
+        exit 1
+    }
+else
+    STATUS_FAILURE_REASON="unknown_event_type_${EVENT_TYPE}"
+    exit 1
+fi
+
 # (Tasks 2.5–2.11 add pipeline phases)
 
 # Placeholder for now so the skeleton runs to completion
