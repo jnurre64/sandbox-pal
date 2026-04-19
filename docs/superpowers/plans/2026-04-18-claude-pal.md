@@ -8,9 +8,9 @@
 
 **Tech Stack:** Bash 5+, Docker 20+ (Linux containers mode), Claude Code CLI (headless `claude -p`), GitHub CLI (`gh`), `jq`, BATS-Core for testing, Ubuntu 24.04 base image, `notify-send` / `osascript` / BurntToast for cross-platform notifications.
 
-**Output location:** This plan is being written to `/home/jonny/claude-pal-plan.md` since the `claude-pal` repo does not exist yet. Once the repo is created in Phase 1, this plan moves to `docs/superpowers/plans/2026-04-18-claude-pal.md` as part of Task 1.1.
+**Repo location:** The `claude-pal` repo lives at `~/repos/claude-pal/` (under the host's existing `~/repos/` directory alongside other project checkouts). Phase 1 Task 1.1 originally created it at `~/claude-pal/`; that was moved to `~/repos/claude-pal/` during Phase 1 execution. All path references in this plan have been updated to the canonical `~/repos/claude-pal/`. The plan itself now lives at `docs/superpowers/plans/2026-04-18-claude-pal.md` inside that repo.
 
-**Spec:** See `/home/jonny/claude-pal-design.md` for the full design document. All design decisions referenced below are justified there.
+**Spec:** See `docs/superpowers/specs/2026-04-18-claude-pal-design.md` in this repo for the full design document. All design decisions referenced below are justified there.
 
 ---
 
@@ -64,19 +64,19 @@ This keeps each session's context focused, preserves a natural review checkpoint
 ### Task 1.1: Initialize repository and baseline files
 
 **Files:**
-- Create: `~/claude-pal/` (new directory + git repo)
-- Create: `~/claude-pal/README.md`
-- Create: `~/claude-pal/LICENSE`
-- Create: `~/claude-pal/.gitignore`
-- Create: `~/claude-pal/CLAUDE.md`
-- Move: `/home/jonny/claude-pal-design.md` → `~/claude-pal/docs/superpowers/specs/2026-04-18-claude-pal-design.md`
-- Move: `/home/jonny/claude-pal-plan.md` → `~/claude-pal/docs/superpowers/plans/2026-04-18-claude-pal.md`
+- Create: `~/repos/claude-pal/` (new directory + git repo)
+- Create: `~/repos/claude-pal/README.md`
+- Create: `~/repos/claude-pal/LICENSE`
+- Create: `~/repos/claude-pal/.gitignore`
+- Create: `~/repos/claude-pal/CLAUDE.md`
+- Move: `/home/jonny/claude-pal-design.md` → `~/repos/claude-pal/docs/superpowers/specs/2026-04-18-claude-pal-design.md`
+- Move: `/home/jonny/claude-pal-plan.md` → `~/repos/claude-pal/docs/superpowers/plans/2026-04-18-claude-pal.md`
 
 - [ ] **Step 1: Create directory and initialize git**
 
 ```bash
-mkdir -p ~/claude-pal/docs/superpowers/{specs,plans}
-cd ~/claude-pal
+mkdir -p ~/repos/claude-pal/docs/superpowers/{specs,plans}
+cd ~/repos/claude-pal
 git init
 git branch -M main
 ```
@@ -84,8 +84,8 @@ git branch -M main
 - [ ] **Step 2: Move spec and plan into the repo**
 
 ```bash
-mv /home/jonny/claude-pal-design.md ~/claude-pal/docs/superpowers/specs/2026-04-18-claude-pal-design.md
-mv /home/jonny/claude-pal-plan.md ~/claude-pal/docs/superpowers/plans/2026-04-18-claude-pal.md
+mv /home/jonny/claude-pal-design.md ~/repos/claude-pal/docs/superpowers/specs/2026-04-18-claude-pal-design.md
+mv /home/jonny/claude-pal-plan.md ~/repos/claude-pal/docs/superpowers/plans/2026-04-18-claude-pal.md
 ```
 
 - [ ] **Step 3: Write `.gitignore`**
@@ -182,7 +182,7 @@ Local agent dispatch via Claude Code skills.
 - [ ] **Step 7: Initial commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add .
 git commit -m "chore: initial repo scaffold with spec and plan"
 ```
@@ -217,42 +217,42 @@ Record the output of `git rev-parse HEAD` from step 1 — it will be written int
 ### Task 1.3: Vendor prompts
 
 **Files:**
-- Create: `~/claude-pal/image/opt/pal/prompts/adversarial-plan.md` (copied from upstream)
-- Create: `~/claude-pal/image/opt/pal/prompts/post-impl-review.md` (copied from upstream)
-- Create: `~/claude-pal/image/opt/pal/prompts/post-impl-retry.md` (copied from upstream)
-- Create: `~/claude-pal/image/opt/pal/prompts/implement.md` (copied from upstream, lightly adapted)
+- Create: `~/repos/claude-pal/image/opt/pal/prompts/adversarial-plan.md` (copied from upstream)
+- Create: `~/repos/claude-pal/image/opt/pal/prompts/post-impl-review.md` (copied from upstream)
+- Create: `~/repos/claude-pal/image/opt/pal/prompts/post-impl-retry.md` (copied from upstream)
+- Create: `~/repos/claude-pal/image/opt/pal/prompts/implement.md` (copied from upstream, lightly adapted)
 
 - [ ] **Step 1: Create directories**
 
 ```bash
-mkdir -p ~/claude-pal/image/opt/pal/prompts
+mkdir -p ~/repos/claude-pal/image/opt/pal/prompts
 ```
 
 - [ ] **Step 2: Copy adversarial-plan.md verbatim**
 
 ```bash
-cp ~/claude-agent-dispatch/prompts/adversarial-plan.md ~/claude-pal/image/opt/pal/prompts/
+cp ~/claude-agent-dispatch/prompts/adversarial-plan.md ~/repos/claude-pal/image/opt/pal/prompts/
 ```
 
 - [ ] **Step 3: Copy post-impl-review.md verbatim**
 
 ```bash
-cp ~/claude-agent-dispatch/prompts/post-impl-review.md ~/claude-pal/image/opt/pal/prompts/
+cp ~/claude-agent-dispatch/prompts/post-impl-review.md ~/repos/claude-pal/image/opt/pal/prompts/
 ```
 
 - [ ] **Step 4: Copy post-impl-retry.md verbatim**
 
 ```bash
-cp ~/claude-agent-dispatch/prompts/post-impl-retry.md ~/claude-pal/image/opt/pal/prompts/
+cp ~/claude-agent-dispatch/prompts/post-impl-retry.md ~/repos/claude-pal/image/opt/pal/prompts/
 ```
 
 - [ ] **Step 5: Copy implement.md and lightly adapt**
 
 ```bash
-cp ~/claude-agent-dispatch/prompts/implement.md ~/claude-pal/image/opt/pal/prompts/
+cp ~/claude-agent-dispatch/prompts/implement.md ~/repos/claude-pal/image/opt/pal/prompts/
 ```
 
-Now edit `~/claude-pal/image/opt/pal/prompts/implement.md` to remove references to the label state machine. Specifically:
+Now edit `~/repos/claude-pal/image/opt/pal/prompts/implement.md` to remove references to the label state machine. Specifically:
 - Remove any mention of `agent:in-progress` or other `agent:*` labels
 - Keep all TDD, self-review, and commit guidance
 - The prompt's essence — "implement the approved plan with TDD, commit each cycle, do not open a PR" — is preserved
@@ -281,7 +281,7 @@ This plan has been reviewed and approved. Follow it closely.
 - [ ] **Step 6: Commit the vendored prompts**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add image/opt/pal/prompts/
 git commit -m "vendor: import review and implement prompts from claude-agent-dispatch"
 ```
@@ -289,18 +289,18 @@ git commit -m "vendor: import review and implement prompts from claude-agent-dis
 ### Task 1.4: Vendor review-gates library
 
 **Files:**
-- Create: `~/claude-pal/image/opt/pal/lib/review-gates.sh` (copied from upstream)
+- Create: `~/repos/claude-pal/image/opt/pal/lib/review-gates.sh` (copied from upstream)
 
 - [ ] **Step 1: Copy review-gates.sh**
 
 ```bash
-mkdir -p ~/claude-pal/image/opt/pal/lib
-cp ~/claude-agent-dispatch/scripts/lib/review-gates.sh ~/claude-pal/image/opt/pal/lib/
+mkdir -p ~/repos/claude-pal/image/opt/pal/lib
+cp ~/claude-agent-dispatch/scripts/lib/review-gates.sh ~/repos/claude-pal/image/opt/pal/lib/
 ```
 
 - [ ] **Step 2: Adapt for single-session usage**
 
-Edit `~/claude-pal/image/opt/pal/lib/review-gates.sh`:
+Edit `~/repos/claude-pal/image/opt/pal/lib/review-gates.sh`:
 
 - The functions `run_adversarial_plan_review`, `run_post_impl_review`, `handle_post_impl_review_retry`, and the `_extract_review_json` helper are preserved verbatim.
 - The helper functions they depend on (`load_prompt`, `run_claude`, `parse_claude_output`, `set_label`, `log`) are assumed to exist in sibling lib files — we'll provide adapted versions in Task 2.5 (run_claude, parse_claude_output) and Task 2.1 (log). The `set_label` calls in the upstream file must be **stubbed** since we don't have a label state machine:
@@ -324,7 +324,7 @@ The `gh issue comment` calls within the review-gates functions are **preserved**
 - [ ] **Step 3: Run shellcheck on the adapted file**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/lib/review-gates.sh
+shellcheck ~/repos/claude-pal/image/opt/pal/lib/review-gates.sh
 ```
 
 Expected: zero warnings. Fix any that appear (usually unquoted expansions in the replaced sections).
@@ -332,7 +332,7 @@ Expected: zero warnings. Fix any that appear (usually unquoted expansions in the
 - [ ] **Step 4: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add image/opt/pal/lib/review-gates.sh
 git commit -m "vendor: import review-gates.sh, adapt for single-session flow"
 ```
@@ -340,7 +340,7 @@ git commit -m "vendor: import review-gates.sh, adapt for single-session flow"
 ### Task 1.5: Write UPSTREAM.md tracking
 
 **Files:**
-- Create: `~/claude-pal/UPSTREAM.md`
+- Create: `~/repos/claude-pal/UPSTREAM.md`
 
 - [ ] **Step 1: Write UPSTREAM.md with source paths, upstream SHA, and modification notes**
 
@@ -377,7 +377,7 @@ Replace `<SHA from Task 1.2>` with the actual SHA recorded in Task 1.2 Step 1.
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add UPSTREAM.md
 git commit -m "docs: add UPSTREAM.md tracking vendored files"
 ```
@@ -385,7 +385,7 @@ git commit -m "docs: add UPSTREAM.md tracking vendored files"
 ### Task 1.6: Write base Dockerfile
 
 **Files:**
-- Create: `~/claude-pal/image/Dockerfile`
+- Create: `~/repos/claude-pal/image/Dockerfile`
 
 - [ ] **Step 1: Write Dockerfile**
 
@@ -437,7 +437,7 @@ ENTRYPOINT ["/opt/pal/entrypoint.sh"]
 - [ ] **Step 2: Verify the file parses as a valid Dockerfile**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 docker buildx build --target 0 -f image/Dockerfile . --dry-run 2>&1 | head -20 || true
 # (--dry-run is newer docker; alternative: just try a build in step 3)
 ```
@@ -445,7 +445,7 @@ docker buildx build --target 0 -f image/Dockerfile . --dry-run 2>&1 | head -20 |
 - [ ] **Step 3: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add image/Dockerfile
 git commit -m "feat(image): initial Dockerfile with claude CLI, gh, jq, git"
 ```
@@ -453,7 +453,7 @@ git commit -m "feat(image): initial Dockerfile with claude CLI, gh, jq, git"
 ### Task 1.7: Minimal entrypoint that logs and exits
 
 **Files:**
-- Create: `~/claude-pal/image/opt/pal/entrypoint.sh`
+- Create: `~/repos/claude-pal/image/opt/pal/entrypoint.sh`
 
 - [ ] **Step 1: Write a minimal placeholder entrypoint (full pipeline in Phase 2)**
 
@@ -502,7 +502,7 @@ log "Scaffold run complete."
 - [ ] **Step 2: shellcheck**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/entrypoint.sh
+shellcheck ~/repos/claude-pal/image/opt/pal/entrypoint.sh
 ```
 
 Expected: zero warnings.
@@ -510,7 +510,7 @@ Expected: zero warnings.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add image/opt/pal/entrypoint.sh
 git commit -m "feat(image): scaffold entrypoint.sh (writes status.json on exit)"
 ```
@@ -518,13 +518,13 @@ git commit -m "feat(image): scaffold entrypoint.sh (writes status.json on exit)"
 ### Task 1.8: Image build and smoke test
 
 **Files:**
-- Create: `~/claude-pal/scripts/build-image.sh`
-- Create: `~/claude-pal/tests/test_image_smoke.bats`
+- Create: `~/repos/claude-pal/scripts/build-image.sh`
+- Create: `~/repos/claude-pal/tests/test_image_smoke.bats`
 
 - [ ] **Step 1: Add BATS as a submodule**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git submodule add https://github.com/bats-core/bats-core.git tests/bats
 git submodule add https://github.com/bats-core/bats-support.git tests/test_helper/bats-support
 git submodule add https://github.com/bats-core/bats-assert.git tests/test_helper/bats-assert
@@ -534,8 +534,8 @@ git commit -m "chore(test): add BATS-core submodules"
 - [ ] **Step 2: Write the image build script**
 
 ```bash
-mkdir -p ~/claude-pal/scripts
-cat > ~/claude-pal/scripts/build-image.sh <<'EOF'
+mkdir -p ~/repos/claude-pal/scripts
+cat > ~/repos/claude-pal/scripts/build-image.sh <<'EOF'
 #!/bin/bash
 # Build the claude-pal base image.
 set -euo pipefail
@@ -553,13 +553,15 @@ docker build \
     -t "$TAG" \
     .
 EOF
-chmod +x ~/claude-pal/scripts/build-image.sh
+chmod +x ~/repos/claude-pal/scripts/build-image.sh
 ```
 
 - [ ] **Step 3: Write the smoke test**
 
+> **Bind-mount permissions note (Linux hosts):** The Dockerfile runs the container as a non-root `agent` user created with `useradd -m` in the image, so `agent`'s UID is typically `1001` (not the host user's `1000`). When the entrypoint writes to the bind-mounted `/status` dir, Linux kernel file perms (not Docker) govern the write, so the host-side dir must be writable by the container user. `mktemp -d` creates a `0700` dir, which the container user cannot write to — the scaffold run fails with `tee: /status/log: Permission denied`. Fix: `chmod 0777` the status dir after `mktemp`. The Docker launcher in Task 3.4 applies the same treatment to each run's status dir.
+
 ```bash
-cat > ~/claude-pal/tests/test_image_smoke.bats <<'EOF'
+cat > ~/repos/claude-pal/tests/test_image_smoke.bats <<'EOF'
 #!/usr/bin/env bats
 load 'test_helper/bats-support/load'
 load 'test_helper/bats-assert/load'
@@ -568,6 +570,10 @@ setup() {
     REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME}")/.." && pwd)"
     IMAGE_TAG="claude-pal:test-$RANDOM"
     STATUS_DIR="$(mktemp -d)"
+    # Container runs as non-root "agent" user with a UID that usually
+    # differs from the host's, so the bind-mounted status dir must be
+    # writable by "other" for the entrypoint to write status.json/log.
+    chmod 0777 "$STATUS_DIR"
 }
 
 teardown() {
@@ -596,7 +602,7 @@ EOF
 - [ ] **Step 4: Run the smoke test**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 ./tests/bats/bin/bats tests/test_image_smoke.bats
 ```
 
@@ -605,7 +611,7 @@ Expected: both tests pass. Image build is slow the first time (~5 minutes for ba
 - [ ] **Step 5: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add scripts/build-image.sh tests/test_image_smoke.bats
 git commit -m "test(image): smoke test for image build and scaffold entrypoint"
 ```
@@ -619,7 +625,7 @@ git commit -m "test(image): smoke test for image build and scaffold entrypoint"
 ### Task 2.1: Entrypoint skeleton with logging, status, and error trap
 
 **Files:**
-- Modify: `~/claude-pal/image/opt/pal/entrypoint.sh`
+- Modify: `~/repos/claude-pal/image/opt/pal/entrypoint.sh`
 
 - [ ] **Step 1: Replace the scaffold entrypoint with structured skeleton**
 
@@ -718,7 +724,7 @@ STATUS_PHASE="complete"
 - [ ] **Step 2: shellcheck**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/entrypoint.sh
+shellcheck ~/repos/claude-pal/image/opt/pal/entrypoint.sh
 ```
 
 Expected: zero warnings.
@@ -726,7 +732,7 @@ Expected: zero warnings.
 - [ ] **Step 3: Rebuild and rerun smoke test**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 ./tests/bats/bin/bats tests/test_image_smoke.bats
 ```
 
@@ -735,7 +741,7 @@ Expected: both tests still pass.
 - [ ] **Step 4: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add image/opt/pal/entrypoint.sh
 git commit -m "feat(entrypoint): skeleton with logging, status tracking, error trap"
 ```
@@ -743,9 +749,9 @@ git commit -m "feat(entrypoint): skeleton with logging, status tracking, error t
 ### Task 2.2: Firewall allowlist application
 
 **Files:**
-- Create: `~/claude-pal/image/opt/pal/allowlist.yaml`
-- Create: `~/claude-pal/image/opt/pal/lib/firewall.sh`
-- Modify: `~/claude-pal/image/opt/pal/entrypoint.sh` (source + call firewall apply)
+- Create: `~/repos/claude-pal/image/opt/pal/allowlist.yaml`
+- Create: `~/repos/claude-pal/image/opt/pal/lib/firewall.sh`
+- Modify: `~/repos/claude-pal/image/opt/pal/entrypoint.sh` (source + call firewall apply)
 
 - [ ] **Step 1: Write the default allowlist**
 
@@ -834,7 +840,7 @@ apply_firewall() {
 
 - [ ] **Step 3: Wire firewall.sh into entrypoint**
 
-In `~/claude-pal/image/opt/pal/entrypoint.sh`, after the review-gates source line, add:
+In `~/repos/claude-pal/image/opt/pal/entrypoint.sh`, after the review-gates source line, add:
 
 ```bash
 # shellcheck source=/dev/null
@@ -850,7 +856,7 @@ apply_firewall "$PAL_HOME/allowlist.yaml" || {
 - [ ] **Step 4: shellcheck**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/lib/firewall.sh ~/claude-pal/image/opt/pal/entrypoint.sh
+shellcheck ~/repos/claude-pal/image/opt/pal/lib/firewall.sh ~/repos/claude-pal/image/opt/pal/entrypoint.sh
 ```
 
 Expected: zero warnings.
@@ -858,7 +864,7 @@ Expected: zero warnings.
 - [ ] **Step 5: Rebuild image and verify firewall rules install**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 ./scripts/build-image.sh claude-pal:dev
 docker run --rm --cap-add=NET_ADMIN \
   -e CLAUDE_CODE_OAUTH_TOKEN=fake-for-smoke \
@@ -875,7 +881,7 @@ Note: `--cap-add=NET_ADMIN` is required for iptables inside the container. The s
 - [ ] **Step 6: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add image/opt/pal/allowlist.yaml image/opt/pal/lib/firewall.sh image/opt/pal/entrypoint.sh
 git commit -m "feat(entrypoint): apply deny-by-default iptables allowlist at startup"
 ```
@@ -883,8 +889,8 @@ git commit -m "feat(entrypoint): apply deny-by-default iptables allowlist at sta
 ### Task 2.3: Repo clone and worktree setup
 
 **Files:**
-- Create: `~/claude-pal/image/opt/pal/lib/worktree.sh`
-- Modify: `~/claude-pal/image/opt/pal/entrypoint.sh`
+- Create: `~/repos/claude-pal/image/opt/pal/lib/worktree.sh`
+- Modify: `~/repos/claude-pal/image/opt/pal/entrypoint.sh`
 
 - [ ] **Step 1: Write worktree.sh**
 
@@ -954,8 +960,8 @@ setup_worktree "$REPO" "$NUMBER" "$EVENT_TYPE" || {
 - [ ] **Step 3: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/lib/worktree.sh ~/claude-pal/image/opt/pal/entrypoint.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/image/opt/pal/lib/worktree.sh ~/repos/claude-pal/image/opt/pal/entrypoint.sh
+cd ~/repos/claude-pal
 git add image/opt/pal/lib/worktree.sh image/opt/pal/entrypoint.sh
 git commit -m "feat(entrypoint): clone repo and setup worktree per run"
 ```
@@ -963,8 +969,8 @@ git commit -m "feat(entrypoint): clone repo and setup worktree per run"
 ### Task 2.4: Fetch issue body and plan comment
 
 **Files:**
-- Create: `~/claude-pal/image/opt/pal/lib/fetch-context.sh`
-- Modify: `~/claude-pal/image/opt/pal/entrypoint.sh`
+- Create: `~/repos/claude-pal/image/opt/pal/lib/fetch-context.sh`
+- Modify: `~/repos/claude-pal/image/opt/pal/entrypoint.sh`
 
 - [ ] **Step 1: Write fetch-context.sh**
 
@@ -1068,8 +1074,8 @@ fi
 - [ ] **Step 3: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/lib/fetch-context.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/image/opt/pal/lib/fetch-context.sh
+cd ~/repos/claude-pal
 git add image/opt/pal/lib/fetch-context.sh image/opt/pal/entrypoint.sh
 git commit -m "feat(entrypoint): fetch issue/plan or PR context from GitHub"
 ```
@@ -1077,8 +1083,8 @@ git commit -m "feat(entrypoint): fetch issue/plan or PR context from GitHub"
 ### Task 2.5: run_claude and load_prompt helpers
 
 **Files:**
-- Create: `~/claude-pal/image/opt/pal/lib/claude-runner.sh`
-- Modify: `~/claude-pal/image/opt/pal/entrypoint.sh`
+- Create: `~/repos/claude-pal/image/opt/pal/lib/claude-runner.sh`
+- Modify: `~/repos/claude-pal/image/opt/pal/entrypoint.sh`
 
 - [ ] **Step 1: Write claude-runner.sh**
 
@@ -1145,8 +1151,8 @@ In `entrypoint.sh`, after the other source lines:
 - [ ] **Step 3: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/lib/claude-runner.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/image/opt/pal/lib/claude-runner.sh
+cd ~/repos/claude-pal
 git add image/opt/pal/lib/claude-runner.sh image/opt/pal/entrypoint.sh
 git commit -m "feat(entrypoint): add claude-runner lib (load_prompt, run_claude, parse_claude_output)"
 ```
@@ -1154,7 +1160,7 @@ git commit -m "feat(entrypoint): add claude-runner lib (load_prompt, run_claude,
 ### Task 2.6: Gate A — adversarial plan review
 
 **Files:**
-- Modify: `~/claude-pal/image/opt/pal/entrypoint.sh`
+- Modify: `~/repos/claude-pal/image/opt/pal/entrypoint.sh`
 
 - [ ] **Step 1: Wire Gate A into the pipeline**
 
@@ -1180,8 +1186,8 @@ Check the vendored file mentions `AGENT_ADVERSARIAL_PLAN_REVIEW`, `AGENT_ALLOWED
 - [ ] **Step 3: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/entrypoint.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/image/opt/pal/entrypoint.sh
+cd ~/repos/claude-pal
 git add image/opt/pal/entrypoint.sh
 git commit -m "feat(entrypoint): Gate A adversarial plan review wired in for implement flow"
 ```
@@ -1189,7 +1195,7 @@ git commit -m "feat(entrypoint): Gate A adversarial plan review wired in for imp
 ### Task 2.7: Implement phase with TDD retry loop
 
 **Files:**
-- Modify: `~/claude-pal/image/opt/pal/entrypoint.sh`
+- Modify: `~/repos/claude-pal/image/opt/pal/entrypoint.sh`
 
 - [ ] **Step 1: Add the implement phase with retry loop**
 
@@ -1280,8 +1286,8 @@ log "implement: captured $(git -C "$WORKTREE_DIR" rev-list --count "${start_sha}
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/entrypoint.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/image/opt/pal/entrypoint.sh
+cd ~/repos/claude-pal
 git add image/opt/pal/entrypoint.sh
 git commit -m "feat(entrypoint): implement phase with TDD retry loop and test-fail feedback"
 ```
@@ -1289,7 +1295,7 @@ git commit -m "feat(entrypoint): implement phase with TDD retry loop and test-fa
 ### Task 2.8: Gate B — post-impl review and retry
 
 **Files:**
-- Modify: `~/claude-pal/image/opt/pal/entrypoint.sh`
+- Modify: `~/repos/claude-pal/image/opt/pal/entrypoint.sh`
 
 - [ ] **Step 1: Add Gate B after implement**
 
@@ -1319,8 +1325,8 @@ fi
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/entrypoint.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/image/opt/pal/entrypoint.sh
+cd ~/repos/claude-pal
 git add image/opt/pal/entrypoint.sh
 git commit -m "feat(entrypoint): Gate B post-impl review + retry with concern handling"
 ```
@@ -1328,7 +1334,7 @@ git commit -m "feat(entrypoint): Gate B post-impl review + retry with concern ha
 ### Task 2.9: Push branch and create PR
 
 **Files:**
-- Modify: `~/claude-pal/image/opt/pal/entrypoint.sh`
+- Modify: `~/repos/claude-pal/image/opt/pal/entrypoint.sh`
 
 - [ ] **Step 1: Add push + PR create for implement; push-only for revise**
 
@@ -1378,8 +1384,8 @@ STATUS_PHASE="complete"
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/image/opt/pal/entrypoint.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/image/opt/pal/entrypoint.sh
+cd ~/repos/claude-pal
 git add image/opt/pal/entrypoint.sh
 git commit -m "feat(entrypoint): push branch and create PR (or update PR for revise)"
 ```
@@ -1387,7 +1393,7 @@ git commit -m "feat(entrypoint): push branch and create PR (or update PR for rev
 ### Task 2.10: End-to-end container pipeline test
 
 **Files:**
-- Create: `~/claude-pal/tests/test_container_pipeline.bats`
+- Create: `~/repos/claude-pal/tests/test_container_pipeline.bats`
 - Requires: a test GitHub repo the developer owns + a test issue with a trivial plan
 
 - [ ] **Step 1: Prepare a test repo and issue manually**
@@ -1400,7 +1406,7 @@ This is a one-time manual step (documented here; tests use repo name env var):
 - [ ] **Step 2: Write the integration test**
 
 ```bash
-cat > ~/claude-pal/tests/test_container_pipeline.bats <<'EOF'
+cat > ~/repos/claude-pal/tests/test_container_pipeline.bats <<'EOF'
 #!/usr/bin/env bats
 load 'test_helper/bats-support/load'
 load 'test_helper/bats-assert/load'
@@ -1446,7 +1452,7 @@ EOF
 - [ ] **Step 3: Run the integration test**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 export PAL_TEST_REPO="yourname/claude-pal-smoketest"
 export PAL_TEST_ISSUE="1"
 export CLAUDE_CODE_OAUTH_TOKEN="$(cat ~/.config/claude-dispatch/oauth.env 2>/dev/null || echo)"
@@ -1459,7 +1465,7 @@ Expected: test completes (may take 5–15 minutes depending on the trivial fix).
 - [ ] **Step 4: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add tests/test_container_pipeline.bats
 git commit -m "test(container): end-to-end pipeline integration test"
 ```
@@ -1473,15 +1479,15 @@ git commit -m "test(container): end-to-end pipeline integration test"
 ### Task 3.1: Skill directory structure and config loader
 
 **Files:**
-- Create: `~/claude-pal/skills/pal-implement/SKILL.md`
-- Create: `~/claude-pal/skills/lib/config.sh`
+- Create: `~/repos/claude-pal/skills/pal-implement/SKILL.md`
+- Create: `~/repos/claude-pal/skills/lib/config.sh`
 
 - [ ] **Step 1: Write the config loader**
 
 ```bash
-mkdir -p ~/claude-pal/skills/lib ~/claude-pal/skills/pal-implement
+mkdir -p ~/repos/claude-pal/skills/lib ~/repos/claude-pal/skills/pal-implement
 
-cat > ~/claude-pal/skills/lib/config.sh <<'EOF'
+cat > ~/repos/claude-pal/skills/lib/config.sh <<'EOF'
 # skills/lib/config.sh
 # Resolve and load the claude-pal host config.
 # Returns config values via stdout or sets variables depending on caller.
@@ -1544,13 +1550,13 @@ EOF
 - [ ] **Step 2: shellcheck**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/config.sh
+shellcheck ~/repos/claude-pal/skills/lib/config.sh
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add skills/lib/config.sh skills/pal-implement/
 git commit -m "feat(skills): config loader with platform-aware path resolution"
 ```
@@ -1558,12 +1564,12 @@ git commit -m "feat(skills): config loader with platform-aware path resolution"
 ### Task 3.2: Preflight check helpers
 
 **Files:**
-- Create: `~/claude-pal/skills/lib/preflight.sh`
+- Create: `~/repos/claude-pal/skills/lib/preflight.sh`
 
 - [ ] **Step 1: Write preflight checks**
 
 ```bash
-cat > ~/claude-pal/skills/lib/preflight.sh <<'EOF'
+cat > ~/repos/claude-pal/skills/lib/preflight.sh <<'EOF'
 # skills/lib/preflight.sh
 # Preflight checks run before every dispatch.
 
@@ -1664,13 +1670,13 @@ EOF
 - [ ] **Step 2: shellcheck**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/preflight.sh
+shellcheck ~/repos/claude-pal/skills/lib/preflight.sh
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add skills/lib/preflight.sh
 git commit -m "feat(skills): preflight check helpers (auth, docker, windows-bash, gh, lock)"
 ```
@@ -1678,12 +1684,12 @@ git commit -m "feat(skills): preflight check helpers (auth, docker, windows-bash
 ### Task 3.3: Run registry helper
 
 **Files:**
-- Create: `~/claude-pal/skills/lib/runs.sh`
+- Create: `~/repos/claude-pal/skills/lib/runs.sh`
 
 - [ ] **Step 1: Write runs.sh**
 
 ```bash
-cat > ~/claude-pal/skills/lib/runs.sh <<'EOF'
+cat > ~/repos/claude-pal/skills/lib/runs.sh <<'EOF'
 # skills/lib/runs.sh
 # Run registry: directory layout, run id generation, reconciliation.
 
@@ -1759,8 +1765,8 @@ EOF
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/runs.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/runs.sh
+cd ~/repos/claude-pal
 git add skills/lib/runs.sh
 git commit -m "feat(skills): run registry helpers (dir layout, run ids, lock files)"
 ```
@@ -1768,12 +1774,14 @@ git commit -m "feat(skills): run registry helpers (dir layout, run ids, lock fil
 ### Task 3.4: Docker launcher (sync mode)
 
 **Files:**
-- Create: `~/claude-pal/skills/lib/launcher.sh`
+- Create: `~/repos/claude-pal/skills/lib/launcher.sh`
+
+> **Bind-mount permissions (Linux hosts):** The container runs as the non-root `agent` user defined in the Dockerfile. On Linux, that user's UID usually differs from the host user's, so the bind-mounted `/status` dir needs to be writable by "other" or the entrypoint's `tee`/status writes fail with `Permission denied`. The launcher `chmod 0777`s `run_dir` before `docker run`. (On macOS/Docker Desktop the virtualized file sharing rewrites ownership, so this is effectively a no-op there; on Windows/Docker Desktop the NTFS ACL check in Phase 7 covers the analogous concern.) The Phase 1 smoke test already applies this chmod for the same reason.
 
 - [ ] **Step 1: Write launcher.sh**
 
 ```bash
-cat > ~/claude-pal/skills/lib/launcher.sh <<'EOF'
+cat > ~/repos/claude-pal/skills/lib/launcher.sh <<'EOF'
 # skills/lib/launcher.sh
 # Backend adapter: launches the container via docker run.
 
@@ -1786,6 +1794,10 @@ pal_launch_sync() {
     local run_dir
     run_dir=$(pal_run_dir "$run_id")
     local image_tag="${PAL_IMAGE_TAG:-claude-pal:latest}"
+
+    # Make the bind-mounted status dir writable by the container's non-root
+    # agent user (UID differs from host on Linux). See note above.
+    chmod 0777 "$run_dir"
 
     # Per-repo config (if present in current working directory's .pal/)
     local per_repo_config=".pal/config.env"
@@ -1872,8 +1884,8 @@ EOF
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/launcher.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/launcher.sh
+cd ~/repos/claude-pal
 git add skills/lib/launcher.sh
 git commit -m "feat(skills): docker sync launcher and status pretty-printer"
 ```
@@ -1881,7 +1893,7 @@ git commit -m "feat(skills): docker sync launcher and status pretty-printer"
 ### Task 3.5: `/pal-implement` skill markdown
 
 **Files:**
-- Create: `~/claude-pal/skills/pal-implement/SKILL.md`
+- Create: `~/repos/claude-pal/skills/pal-implement/SKILL.md`
 
 - [ ] **Step 1: Write SKILL.md**
 
@@ -1929,7 +1941,7 @@ If `--async` flag is given, instead of steps 6-8 use the async path (implemented
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add skills/pal-implement/SKILL.md
 git commit -m "feat(skills): pal-implement SKILL.md (sync mode)"
 ```
@@ -1937,12 +1949,12 @@ git commit -m "feat(skills): pal-implement SKILL.md (sync mode)"
 ### Task 3.6: Skill smoke test
 
 **Files:**
-- Create: `~/claude-pal/tests/test_skill_pal_implement.bats`
+- Create: `~/repos/claude-pal/tests/test_skill_pal_implement.bats`
 
 - [ ] **Step 1: Write the test (mocks docker)**
 
 ```bash
-cat > ~/claude-pal/tests/test_skill_pal_implement.bats <<'EOF'
+cat > ~/repos/claude-pal/tests/test_skill_pal_implement.bats <<'EOF'
 #!/usr/bin/env bats
 load 'test_helper/bats-support/load'
 load 'test_helper/bats-assert/load'
@@ -2020,14 +2032,14 @@ EOF
 - [ ] **Step 2: Run the test**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 ./tests/bats/bin/bats tests/test_skill_pal_implement.bats
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add tests/test_skill_pal_implement.bats
 git commit -m "test(skills): pal-implement happy path smoke test with mocked docker"
 ```
@@ -2041,12 +2053,12 @@ git commit -m "test(skills): pal-implement happy path smoke test with mocked doc
 ### Task 4.1: Plan file locator
 
 **Files:**
-- Create: `~/claude-pal/skills/lib/plan-locator.sh`
+- Create: `~/repos/claude-pal/skills/lib/plan-locator.sh`
 
 - [ ] **Step 1: Write plan-locator.sh**
 
 ```bash
-cat > ~/claude-pal/skills/lib/plan-locator.sh <<'EOF'
+cat > ~/repos/claude-pal/skills/lib/plan-locator.sh <<'EOF'
 # skills/lib/plan-locator.sh
 # Locate the implementation plan file to publish.
 
@@ -2083,8 +2095,8 @@ EOF
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/plan-locator.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/plan-locator.sh
+cd ~/repos/claude-pal
 git add skills/lib/plan-locator.sh
 git commit -m "feat(skills): plan-locator for auto-detecting plan files"
 ```
@@ -2092,12 +2104,12 @@ git commit -m "feat(skills): plan-locator for auto-detecting plan files"
 ### Task 4.2: Plan publisher
 
 **Files:**
-- Create: `~/claude-pal/skills/lib/publisher.sh`
+- Create: `~/repos/claude-pal/skills/lib/publisher.sh`
 
 - [ ] **Step 1: Write publisher.sh**
 
 ```bash
-cat > ~/claude-pal/skills/lib/publisher.sh <<'EOF'
+cat > ~/repos/claude-pal/skills/lib/publisher.sh <<'EOF'
 # skills/lib/publisher.sh
 # Publish a plan file as an issue comment (with <!-- agent-plan --> marker).
 
@@ -2153,8 +2165,8 @@ EOF
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/publisher.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/publisher.sh
+cd ~/repos/claude-pal
 git add skills/lib/publisher.sh
 git commit -m "feat(skills): plan publisher (new issue or comment on existing)"
 ```
@@ -2162,13 +2174,13 @@ git commit -m "feat(skills): plan publisher (new issue or comment on existing)"
 ### Task 4.3: `/pal-plan` skill markdown
 
 **Files:**
-- Create: `~/claude-pal/skills/pal-plan/SKILL.md`
+- Create: `~/repos/claude-pal/skills/pal-plan/SKILL.md`
 
 - [ ] **Step 1: Write SKILL.md**
 
 ```bash
-mkdir -p ~/claude-pal/skills/pal-plan
-cat > ~/claude-pal/skills/pal-plan/SKILL.md <<'EOF'
+mkdir -p ~/repos/claude-pal/skills/pal-plan
+cat > ~/repos/claude-pal/skills/pal-plan/SKILL.md <<'EOF'
 ---
 name: pal-plan
 description: Publish an implementation plan from the current conversation to a GitHub issue. Takes the most recent plan file in docs/superpowers/plans/ (or an explicit --file path) and posts it as a comment with <!-- agent-plan --> marker. Creates a new issue if no issue number given. Does NOT launch a container — provides a checkpoint to review the posted plan on GitHub before running /pal-implement.
@@ -2210,7 +2222,7 @@ EOF
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add skills/pal-plan/SKILL.md
 git commit -m "feat(skills): pal-plan SKILL.md"
 ```
@@ -2218,12 +2230,12 @@ git commit -m "feat(skills): pal-plan SKILL.md"
 ### Task 4.4: `/pal-plan` smoke test
 
 **Files:**
-- Create: `~/claude-pal/tests/test_skill_pal_plan.bats`
+- Create: `~/repos/claude-pal/tests/test_skill_pal_plan.bats`
 
 - [ ] **Step 1: Write the test (mocks gh CLI)**
 
 ```bash
-cat > ~/claude-pal/tests/test_skill_pal_plan.bats <<'EOF'
+cat > ~/repos/claude-pal/tests/test_skill_pal_plan.bats <<'EOF'
 #!/usr/bin/env bats
 load 'test_helper/bats-support/load'
 load 'test_helper/bats-assert/load'
@@ -2306,14 +2318,14 @@ EOF
 - [ ] **Step 2: Run the tests**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 ./tests/bats/bin/bats tests/test_skill_pal_plan.bats
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add tests/test_skill_pal_plan.bats
 git commit -m "test(skills): pal-plan coverage for new-issue and existing-issue flows"
 ```
@@ -2327,12 +2339,12 @@ git commit -m "test(skills): pal-plan coverage for new-issue and existing-issue 
 ### Task 5.1: Cross-platform notifier
 
 **Files:**
-- Create: `~/claude-pal/skills/lib/notify.sh`
+- Create: `~/repos/claude-pal/skills/lib/notify.sh`
 
 - [ ] **Step 1: Write notify.sh**
 
 ```bash
-cat > ~/claude-pal/skills/lib/notify.sh <<'EOF'
+cat > ~/repos/claude-pal/skills/lib/notify.sh <<'EOF'
 # skills/lib/notify.sh
 # Cross-platform desktop notifier.
 
@@ -2381,8 +2393,8 @@ EOF
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/notify.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/notify.sh
+cd ~/repos/claude-pal
 git add skills/lib/notify.sh
 git commit -m "feat(skills): cross-platform desktop notifier (Linux/macOS/Windows)"
 ```
@@ -2390,7 +2402,7 @@ git commit -m "feat(skills): cross-platform desktop notifier (Linux/macOS/Window
 ### Task 5.2: Async launcher with watcher
 
 **Files:**
-- Modify: `~/claude-pal/skills/lib/launcher.sh`
+- Modify: `~/repos/claude-pal/skills/lib/launcher.sh`
 
 - [ ] **Step 1: Add async launch function to launcher.sh**
 
@@ -2472,8 +2484,8 @@ pal_launch_async() {
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/launcher.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/launcher.sh
+cd ~/repos/claude-pal
 git add skills/lib/launcher.sh
 git commit -m "feat(skills): async launcher with forked watcher and notification"
 ```
@@ -2481,7 +2493,7 @@ git commit -m "feat(skills): async launcher with forked watcher and notification
 ### Task 5.3: Wire --async into `/pal-implement`
 
 **Files:**
-- Modify: `~/claude-pal/skills/pal-implement/SKILL.md`
+- Modify: `~/repos/claude-pal/skills/pal-implement/SKILL.md`
 
 - [ ] **Step 1: Update SKILL.md to handle --async**
 
@@ -2499,7 +2511,7 @@ Update the "Steps" section to:
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add skills/pal-implement/SKILL.md
 git commit -m "feat(skills): pal-implement now supports --async"
 ```
@@ -2507,14 +2519,14 @@ git commit -m "feat(skills): pal-implement now supports --async"
 ### Task 5.4: `/pal-status` skill
 
 **Files:**
-- Create: `~/claude-pal/skills/pal-status/SKILL.md`
-- Create: `~/claude-pal/skills/lib/status-list.sh`
+- Create: `~/repos/claude-pal/skills/pal-status/SKILL.md`
+- Create: `~/repos/claude-pal/skills/lib/status-list.sh`
 
 - [ ] **Step 1: Write status-list.sh**
 
 ```bash
-mkdir -p ~/claude-pal/skills/pal-status
-cat > ~/claude-pal/skills/lib/status-list.sh <<'EOF'
+mkdir -p ~/repos/claude-pal/skills/pal-status
+cat > ~/repos/claude-pal/skills/lib/status-list.sh <<'EOF'
 # skills/lib/status-list.sh
 # List runs and reconcile against docker ps.
 
@@ -2608,7 +2620,7 @@ EOF
 - [ ] **Step 2: Write `/pal-status` SKILL.md**
 
 ```bash
-cat > ~/claude-pal/skills/pal-status/SKILL.md <<'EOF'
+cat > ~/repos/claude-pal/skills/pal-status/SKILL.md <<'EOF'
 ---
 name: pal-status
 description: List claude-pal runs or show details on a specific one. Reconciles stale status against docker ps.
@@ -2634,8 +2646,8 @@ EOF
 - [ ] **Step 3: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/status-list.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/status-list.sh
+cd ~/repos/claude-pal
 git add skills/lib/status-list.sh skills/pal-status/SKILL.md
 git commit -m "feat(skills): pal-status for listing/detailing/cleaning runs"
 ```
@@ -2643,13 +2655,13 @@ git commit -m "feat(skills): pal-status for listing/detailing/cleaning runs"
 ### Task 5.5: `/pal-logs` skill
 
 **Files:**
-- Create: `~/claude-pal/skills/pal-logs/SKILL.md`
+- Create: `~/repos/claude-pal/skills/pal-logs/SKILL.md`
 
 - [ ] **Step 1: Write SKILL.md**
 
 ```bash
-mkdir -p ~/claude-pal/skills/pal-logs
-cat > ~/claude-pal/skills/pal-logs/SKILL.md <<'EOF'
+mkdir -p ~/repos/claude-pal/skills/pal-logs
+cat > ~/repos/claude-pal/skills/pal-logs/SKILL.md <<'EOF'
 ---
 name: pal-logs
 description: Tail logs for a claude-pal run. Supports --follow to stream live output.
@@ -2676,7 +2688,7 @@ EOF
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add skills/pal-logs/SKILL.md
 git commit -m "feat(skills): pal-logs skill"
 ```
@@ -2684,8 +2696,8 @@ git commit -m "feat(skills): pal-logs skill"
 ### Task 5.6: `/pal-cancel` skill
 
 **Files:**
-- Create: `~/claude-pal/skills/pal-cancel/SKILL.md`
-- Modify: `~/claude-pal/skills/lib/launcher.sh`
+- Create: `~/repos/claude-pal/skills/pal-cancel/SKILL.md`
+- Modify: `~/repos/claude-pal/skills/lib/launcher.sh`
 
 - [ ] **Step 1: Add pal_cancel to launcher.sh**
 
@@ -2744,8 +2756,8 @@ EOF_CANCEL
 - [ ] **Step 2: Write SKILL.md**
 
 ```bash
-mkdir -p ~/claude-pal/skills/pal-cancel
-cat > ~/claude-pal/skills/pal-cancel/SKILL.md <<'EOF'
+mkdir -p ~/repos/claude-pal/skills/pal-cancel
+cat > ~/repos/claude-pal/skills/pal-cancel/SKILL.md <<'EOF'
 ---
 name: pal-cancel
 description: Cancel an in-flight claude-pal run. Sends SIGTERM (10s grace) then SIGKILL.
@@ -2769,8 +2781,8 @@ EOF
 - [ ] **Step 3: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/launcher.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/launcher.sh
+cd ~/repos/claude-pal
 git add skills/pal-cancel/SKILL.md skills/lib/launcher.sh
 git commit -m "feat(skills): pal-cancel for killing in-flight runs"
 ```
@@ -2784,13 +2796,13 @@ git commit -m "feat(skills): pal-cancel for killing in-flight runs"
 ### Task 6.1: `/pal-revise` skill markdown
 
 **Files:**
-- Create: `~/claude-pal/skills/pal-revise/SKILL.md`
+- Create: `~/repos/claude-pal/skills/pal-revise/SKILL.md`
 
 - [ ] **Step 1: Write SKILL.md**
 
 ```bash
-mkdir -p ~/claude-pal/skills/pal-revise
-cat > ~/claude-pal/skills/pal-revise/SKILL.md <<'EOF'
+mkdir -p ~/repos/claude-pal/skills/pal-revise
+cat > ~/repos/claude-pal/skills/pal-revise/SKILL.md <<'EOF'
 ---
 name: pal-revise
 description: Launch an ephemeral Docker container to address PR review feedback. Fetches PR branch and review comments, runs a focused implementation pass to address concerns, pushes new commits to the PR.
@@ -2831,7 +2843,7 @@ EOF
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add skills/pal-revise/SKILL.md
 git commit -m "feat(skills): pal-revise SKILL.md"
 ```
@@ -2839,12 +2851,12 @@ git commit -m "feat(skills): pal-revise SKILL.md"
 ### Task 6.2: End-to-end revise test
 
 **Files:**
-- Create: `~/claude-pal/tests/test_revise_smoke.bats`
+- Create: `~/repos/claude-pal/tests/test_revise_smoke.bats`
 
 - [ ] **Step 1: Write the test**
 
 ```bash
-cat > ~/claude-pal/tests/test_revise_smoke.bats <<'EOF'
+cat > ~/repos/claude-pal/tests/test_revise_smoke.bats <<'EOF'
 #!/usr/bin/env bats
 load 'test_helper/bats-support/load'
 load 'test_helper/bats-assert/load'
@@ -2886,7 +2898,7 @@ EOF
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add tests/test_revise_smoke.bats
 git commit -m "test(container): end-to-end revise pipeline test"
 ```
@@ -2900,7 +2912,7 @@ git commit -m "test(container): end-to-end revise pipeline test"
 ### Task 7.1: macOS Keychain loader
 
 **Files:**
-- Modify: `~/claude-pal/skills/lib/config.sh`
+- Modify: `~/repos/claude-pal/skills/lib/config.sh`
 
 - [ ] **Step 1: Add Keychain helpers**
 
@@ -2952,8 +2964,8 @@ pal_load_config() {
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/config.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/config.sh
+cd ~/repos/claude-pal
 git add skills/lib/config.sh
 git commit -m "feat(skills): auto-detect macOS Keychain-stored OAuth token"
 ```
@@ -2961,7 +2973,7 @@ git commit -m "feat(skills): auto-detect macOS Keychain-stored OAuth token"
 ### Task 7.2: Windows Credential Manager loader
 
 **Files:**
-- Modify: `~/claude-pal/skills/lib/config.sh`
+- Modify: `~/repos/claude-pal/skills/lib/config.sh`
 
 - [ ] **Step 1: Add Windows Credential Manager helper**
 
@@ -3016,8 +3028,8 @@ pal_load_config() {
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/config.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/config.sh
+cd ~/repos/claude-pal
 git add skills/lib/config.sh
 git commit -m "feat(skills): auto-detect Windows Credential Manager OAuth token"
 ```
@@ -3025,7 +3037,7 @@ git commit -m "feat(skills): auto-detect Windows Credential Manager OAuth token"
 ### Task 7.3: Linux `pass` opt-in integration
 
 **Files:**
-- Modify: `~/claude-pal/skills/lib/config.sh`
+- Modify: `~/repos/claude-pal/skills/lib/config.sh`
 
 - [ ] **Step 1: Add pass support via PAL_CRED_SOURCE env**
 
@@ -3071,8 +3083,8 @@ pal_load_config() {
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/claude-pal/skills/lib/config.sh
-cd ~/claude-pal
+shellcheck ~/repos/claude-pal/skills/lib/config.sh
+cd ~/repos/claude-pal
 git add skills/lib/config.sh
 git commit -m "feat(skills): opt-in 'pass' integration via PAL_CRED_SOURCE=pass:..."
 ```
@@ -3080,7 +3092,7 @@ git commit -m "feat(skills): opt-in 'pass' integration via PAL_CRED_SOURCE=pass:
 ### Task 7.4: Windows NTFS ACL check
 
 **Files:**
-- Modify: `~/claude-pal/skills/lib/config.sh`
+- Modify: `~/repos/claude-pal/skills/lib/config.sh`
 
 - [ ] **Step 1: Implement NTFS ACL validation in pal_config_permissions_ok**
 
@@ -3105,7 +3117,7 @@ Replace the Windows branch in `pal_config_permissions_ok` with:
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add skills/lib/config.sh
 git commit -m "feat(skills): validate NTFS ACL on config.env (Windows)"
 ```
@@ -3119,7 +3131,7 @@ git commit -m "feat(skills): validate NTFS ACL on config.env (Windows)"
 ### Task 8.1: Install guide
 
 **Files:**
-- Create: `~/claude-pal/docs/install.md`
+- Create: `~/repos/claude-pal/docs/install.md`
 
 - [ ] **Step 1: Write docs/install.md**
 
@@ -3147,8 +3159,8 @@ git commit -m "feat(skills): validate NTFS ACL on config.env (Windows)"
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/<owner>/claude-pal.git ~/claude-pal
-cd ~/claude-pal
+git clone https://github.com/<owner>/claude-pal.git ~/repos/claude-pal
+cd ~/repos/claude-pal
 ```
 
 ### 2. Build the image
@@ -3246,7 +3258,7 @@ PAL_CRED_SOURCE=pass:claude-pal/oauth
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add docs/install.md
 git commit -m "docs: install guide for all three platforms"
 ```
@@ -3254,13 +3266,13 @@ git commit -m "docs: install guide for all three platforms"
 ### Task 8.2: Config examples
 
 **Files:**
-- Create: `~/claude-pal/config.env.example`
-- Create: `~/claude-pal/.pal/config.env.example`
+- Create: `~/repos/claude-pal/config.env.example`
+- Create: `~/repos/claude-pal/.pal/config.env.example`
 
 - [ ] **Step 1: Write config.env.example**
 
 ```bash
-cat > ~/claude-pal/config.env.example <<'EOF'
+cat > ~/repos/claude-pal/config.env.example <<'EOF'
 # claude-pal host config — copy to $XDG_CONFIG_HOME/claude-pal/config.env or %LOCALAPPDATA%\claude-pal\config.env
 
 # Claude authentication (exactly one required)
@@ -3290,8 +3302,8 @@ EOF
 - [ ] **Step 2: Write `.pal/config.env.example`**
 
 ```bash
-mkdir -p ~/claude-pal/.pal
-cat > ~/claude-pal/.pal/config.env.example <<'EOF'
+mkdir -p ~/repos/claude-pal/.pal
+cat > ~/repos/claude-pal/.pal/config.env.example <<'EOF'
 # Per-repo claude-pal config — copy to .pal/config.env in your project
 
 # Test commands
@@ -3322,7 +3334,7 @@ EOF
 - [ ] **Step 3: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add config.env.example .pal/config.env.example
 git commit -m "docs: add config examples"
 ```
@@ -3330,12 +3342,12 @@ git commit -m "docs: add config examples"
 ### Task 8.3: Upstream drift check script
 
 **Files:**
-- Create: `~/claude-pal/scripts/diff-upstream.sh`
+- Create: `~/repos/claude-pal/scripts/diff-upstream.sh`
 
 - [ ] **Step 1: Write diff-upstream.sh**
 
 ```bash
-cat > ~/claude-pal/scripts/diff-upstream.sh <<'EOF'
+cat > ~/repos/claude-pal/scripts/diff-upstream.sh <<'EOF'
 #!/bin/bash
 # Diff vendored files against a local claude-agent-dispatch checkout to find upstream drift.
 
@@ -3377,13 +3389,13 @@ done
 
 exit $exit_code
 EOF
-chmod +x ~/claude-pal/scripts/diff-upstream.sh
+chmod +x ~/repos/claude-pal/scripts/diff-upstream.sh
 ```
 
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add scripts/diff-upstream.sh
 git commit -m "scripts: diff-upstream.sh for tracking vendored file drift"
 ```
@@ -3391,7 +3403,7 @@ git commit -m "scripts: diff-upstream.sh for tracking vendored file drift"
 ### Task 8.4: README expansion
 
 **Files:**
-- Modify: `~/claude-pal/README.md`
+- Modify: `~/repos/claude-pal/README.md`
 
 - [ ] **Step 1: Rewrite README.md**
 
@@ -3444,7 +3456,7 @@ MIT. See `LICENSE`.
 - [ ] **Step 2: Commit**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add README.md
 git commit -m "docs(readme): expand to full project overview"
 ```
@@ -3452,7 +3464,7 @@ git commit -m "docs(readme): expand to full project overview"
 ### Task 8.5: CHANGELOG and version tag
 
 **Files:**
-- Create: `~/claude-pal/CHANGELOG.md`
+- Create: `~/repos/claude-pal/CHANGELOG.md`
 
 - [ ] **Step 1: Write CHANGELOG**
 
@@ -3484,7 +3496,7 @@ Initial release.
 - [ ] **Step 2: Tag v1.0.0**
 
 ```bash
-cd ~/claude-pal
+cd ~/repos/claude-pal
 git add CHANGELOG.md
 git commit -m "docs: CHANGELOG for v1.0.0"
 git tag -a v1.0.0 -m "v1.0.0 initial release"
