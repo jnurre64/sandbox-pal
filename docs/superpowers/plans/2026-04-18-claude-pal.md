@@ -2473,6 +2473,108 @@ git commit -m "feat(plugin): pal-brainstorm orchestrator command + sharpen NL de
 
 **Milestone:** Three user-visible entry points now exist — `/claude-pal:pal-brainstorm` (full flow), `/claude-pal:pal-plan` (publish a pre-written plan), `/claude-pal:pal-implement` (dispatch on an existing issue). Descriptions on the two skills are tuned for natural-language invocation so the typical interaction is "have pal build this" rather than explicit slash typing.
 
+### Task 4.6: Pivot to env-passthrough auth (no on-disk secrets file)
+
+**Context / rationale** (so the design decision is recorded).
+
+Prior design stored credentials in a 0600 `~/.config/claude-pal/config.env` that `pal_load_config` read from disk. Research during Phase 4 (see conversation notes + `anthropics/claude-code-action` docs, [The New Stack's Agent SDK interview](https://thenewstack.io/anthropic-agent-sdk-confusion/), and the Anthropic [Usage Policy update](https://www.anthropic.com/news/usage-policy-update)) surfaced two material issues:
+
+1. **ToS positioning.** Anthropic's Feb 2026 Consumer ToS clarification prohibits using subscription OAuth tokens in third-party tools. A personal-use carveout exists (public Anthropic employee statement). The carveout is clearest when the tool follows the documented env-var pattern used by `anthropics/claude-code-action` (export → `docker run -e`), rather than maintaining its own credential file.
+2. **Duplication / attack surface.** A plugin-managed 0600 file duplicates what the user already has to maintain in their shell profile for any other CLI (`gh`, `aws`, etc.). Surveyed community tooling (koogle/claudebox, textcortex/claude-code-sandbox, anthropics/claude-code-action, boxlite-ai/claudebox) overwhelmingly uses env passthrough + optional OS-native credential store, not a bespoke config file.
+
+**Redesign:** claude-pal reads `CLAUDE_CODE_OAUTH_TOKEN` / `ANTHROPIC_API_KEY` / `GH_TOKEN` from `$ENV` directly. No plugin-managed file. Users wire the exports into their shell profile once (or inherit from CI secrets). Phase 7 (keychain/Credential-Manager/pass) is deferred as future nice-to-have, since env-passthrough covers the canonical case and matches industry norms.
+
+**Files:**
+- Rewrite: `~/repos/claude-pal/lib/config.sh` — no file IO; assert required env vars only
+- Edit: `~/repos/claude-pal/lib/preflight.sh` — drop `pal_config_permissions_ok` + `pal_preflight_no_api_key_in_env`; keep single-auth-method check; update messages to reference env vars
+- Edit: `~/repos/claude-pal/tests/test_skill_pal_plan.bats` — `export` env vars instead of writing `config.env`
+- Edit: `~/repos/claude-pal/tests/test_skill_pal_implement.bats` — same
+- Create: `~/repos/claude-pal/commands/pal-setup.md` — guided walkthrough (prompts for credential type, generates OAuth token via `claude setup-token`, adds exports to shell profile, verifies)
+- Edit: `~/repos/claude-pal/README.md` — authentication section with one-time setup, OAuth vs API key guidance, ToS note
+- Edit: `~/repos/claude-pal/CLAUDE.md` — record the env-passthrough architecture so future sessions don't reinvent the file-based approach
+- Edit: `~/repos/claude-pal/docs/superpowers/plans/2026-04-18-claude-pal.md` — mark Phase 7 deferred (this task)
+
+**Steps:**
+
+- [ ] **Step 1: Rewrite `lib/config.sh`**
+
+Replace the file with:
+
+```bash
+# lib/config.sh
+# shellcheck shell=bash
+# Verify required credentials are present in the process environment.
+#
+# claude-pal uses env-passthrough exclusively — this matches Anthropic's own
+# anthropics/claude-code-action pattern. No on-disk secret file: users
+# export CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY) and GH_TOKEN in
+# their shell profile once, and claude-pal forwards them to the container.
+
+pal_load_config() {
+    local missing=()
+    [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] \
+        && missing+=("CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY)")
+    [ -z "${GH_TOKEN:-}" ] && missing+=("GH_TOKEN")
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo "pal: missing required environment variable(s): ${missing[*]}" >&2
+        echo "pal: one-time setup: claude setup-token, then export CLAUDE_CODE_OAUTH_TOKEN=... and GH_TOKEN=... in ~/.bashrc" >&2
+        echo "pal: or: /claude-pal:pal-setup for a guided walkthrough" >&2
+        return 1
+    fi
+}
+```
+
+Drop `pal_config_path` and `pal_config_permissions_ok` — both were file-scoped helpers with no purpose under env-passthrough.
+
+- [ ] **Step 2: Edit `lib/preflight.sh`**
+
+Remove `pal_preflight_no_api_key_in_env` entirely (was a "don't let env shadow config.env" guard that no longer applies). Keep `pal_preflight_single_auth_method` but reword errors to talk about env vars, not `config.env`. Drop the `pal_config_permissions_ok` call from `pal_preflight_all`. `pal_preflight_gh_auth` no longer needs its own GH_TOKEN-missing check since `pal_load_config` covers it.
+
+- [ ] **Step 3: Update bats tests**
+
+In `tests/test_skill_pal_plan.bats` and `tests/test_skill_pal_implement.bats` setup, replace the `config.env` write + `chmod 600` block with:
+
+```bash
+export CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-fake
+export GH_TOKEN=github_pat_fake
+unset ANTHROPIC_API_KEY
+```
+
+Keep the `HOME=$TMPHOME` / `XDG_*` redirection as defensive isolation.
+
+- [ ] **Step 4: Create `commands/pal-setup.md`**
+
+Frontmatter description tuned for NL invocation ("missing required environment variable", "how do I set up pal", "configure claude-pal"). Body walks through: detect current env state, pick credential type, detect shell, run `claude setup-token`, emit `export` lines to the right profile file, verify with a preflight snippet. Include a ToS reminder at the bottom.
+
+- [ ] **Step 5: Update `README.md` and `CLAUDE.md`**
+
+README: authentication section explaining env-passthrough, one-time setup, OAuth-vs-API-key guidance, ToS note, and plugin entry points. CLAUDE.md: "Authentication model" heading that documents env-passthrough so future Claude sessions don't reintroduce a file-based loader.
+
+- [ ] **Step 6: Defer Phase 7**
+
+Prepend a `**Status (2026-04-19):** Deferred...` note to Phase 7's heading in this plan doc. Keep the original tasks intact for reference.
+
+- [ ] **Step 7: Verify and commit**
+
+```bash
+claude plugin validate ~/repos/claude-pal
+cd ~/repos/claude-pal
+./tests/bats/bin/bats tests/
+shellcheck lib/*.sh image/opt/pal/lib/*.sh image/opt/pal/entrypoint.sh
+```
+
+All three green. Then commit in two logical chunks:
+
+```bash
+git add lib/config.sh lib/preflight.sh tests/test_skill_pal_plan.bats tests/test_skill_pal_implement.bats
+git commit -m "refactor(plugin): pivot auth to env-passthrough (no config.env)"
+
+git add commands/pal-setup.md README.md CLAUDE.md docs/superpowers/plans/2026-04-18-claude-pal.md
+git commit -m "feat(plugin): pal-setup walkthrough + auth docs + defer Phase 7"
+```
+
+**Milestone:** Auth model is aligned with Anthropic's documented pattern. Users run `claude setup-token` + add two `export` lines to their shell profile (or use `/claude-pal:pal-setup`) and they're ready to dispatch. No on-disk secrets managed by the plugin. Phase 7's OS-native credential integrations remain available as a future option if the design ever needs to go back to file storage.
+
 ---
 
 ## Phase 5: Async mode, run registry management, and support skills
@@ -3068,7 +3170,11 @@ git commit -m "test(container): end-to-end revise pipeline test"
 
 ---
 
-## Phase 7: Cross-platform hardening
+## Phase 7: Cross-platform hardening — **DEFERRED**
+
+**Status (2026-04-19):** Deferred as "future nice-to-have." Task 4.6 pivoted claude-pal to env-passthrough (credentials read from the process environment, not a plugin-managed file), which matches Anthropic's own `anthropics/claude-code-action` pattern. The original driver for Phase 7 — a 0600 `config.env` on disk that would benefit from OS-native credential stores — no longer exists. Users today export `CLAUDE_CODE_OAUTH_TOKEN`/`ANTHROPIC_API_KEY` and `GH_TOKEN` in their shell profile once; the plugin reads from `$ENV` at dispatch time. Shell-profile storage is functionally equivalent to `~/.aws/credentials` or `~/.config/gh/hosts.yml`, which the industry accepts as a default.
+
+The tasks below are kept for reference in case claude-pal later reintroduces a file-based credential path or becomes distributable as a multi-user service. Do not execute them unless that design change happens first.
 
 ### Task 7.1: macOS Keychain loader
 
