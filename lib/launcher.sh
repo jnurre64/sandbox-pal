@@ -100,3 +100,75 @@ pal_render_status_summary() {
             ;;
     esac
 }
+
+pal_launch_async() {
+    local run_id="$1"
+    local repo="$2"
+    local number="$3"
+    local event_type="$4"
+
+    local run_dir
+    run_dir=$(pal_run_dir "$run_id")
+    local image_tag="${PAL_IMAGE_TAG:-claude-pal:latest}"
+
+    local per_repo_config=".pal/config.env"
+    local per_repo_args=()
+    if [ -f "$per_repo_config" ]; then
+        local per_repo_env
+        per_repo_env=$(grep -E '^(AGENT_|PAL_|DOCKER_HOST=)' "$per_repo_config" | grep -v '^#' || true)
+        while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            per_repo_args+=(-e "$line")
+        done <<< "$per_repo_env"
+    fi
+
+    local docker_args=(
+        run --rm --detach
+        --cap-add=NET_ADMIN
+        -e CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN:-}"
+        -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
+        -e GH_TOKEN="$GH_TOKEN"
+        -v "$run_dir:/status"
+    )
+    docker_args+=("${per_repo_args[@]}")
+    docker_args+=("$image_tag" "$event_type" "$repo" "$number")
+
+    pal_acquire_lock "$run_id" "$repo" "$number"
+
+    local cid
+    cid=$(docker "${docker_args[@]}")
+    echo "$cid" > "$run_dir/container_id"
+
+    # Fork watcher: wait for container exit, then notify
+    (
+        # shellcheck source=/dev/null
+        source "$(dirname "${BASH_SOURCE[0]}")/notify.sh"
+        # shellcheck source=/dev/null
+        source "$(dirname "${BASH_SOURCE[0]}")/runs.sh"
+        docker wait "$cid" > /dev/null 2>&1 || true
+        # Harvest final logs (best-effort)
+        docker logs "$cid" > "$run_dir/log" 2>&1 || true
+        # Release lock
+        pal_release_lock "$repo" "$number"
+        # Read status and notify
+        if [ -f "$run_dir/status.json" ]; then
+            local outcome pr_url
+            outcome=$(jq -r .outcome "$run_dir/status.json" 2>/dev/null)
+            pr_url=$(jq -r .pr_url "$run_dir/status.json" 2>/dev/null)
+            case "$outcome" in
+                success)
+                    pal_notify "claude-pal: $run_id complete" "PR: $pr_url"
+                    ;;
+                *)
+                    pal_notify "claude-pal: $run_id $outcome" "Check /pal-status $run_id"
+                    ;;
+            esac
+        else
+            pal_notify "claude-pal: $run_id exited" "No status.json — check /pal-logs $run_id"
+        fi
+    ) &
+
+    echo "Run $run_id launched (async, container $cid)"
+    echo "  Status: /pal-status $run_id"
+    echo "  Logs:   /pal-logs $run_id --follow"
+}
