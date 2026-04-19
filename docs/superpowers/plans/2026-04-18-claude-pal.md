@@ -2376,7 +2376,102 @@ git add tests/test_skill_pal_plan.bats
 git commit -m "test(plugin): pal-plan coverage for new-issue and existing-issue flows"
 ```
 
-**Milestone:** `/pal-plan` and `/pal-implement` together support the core flow: brainstorm → plan file → publish → dispatch.
+### Task 4.5: `/pal-brainstorm` orchestrator command
+
+Adds an optional entry-point slash command for the full ideation → PR flow. Depends on the `superpowers` plugin (soft check — falls back to a user-facing install hint if missing). Also tightens the `description` fields on `pal-plan` and `pal-implement` so Claude's natural-language skill-selector can match on phrases like "help me plan an issue", "have pal build this", etc.
+
+**Files:**
+- Create: `~/repos/claude-pal/commands/pal-brainstorm.md`
+- Edit: `~/repos/claude-pal/skills/pal-plan/SKILL.md` (description only)
+- Edit: `~/repos/claude-pal/skills/pal-implement/SKILL.md` (description only)
+
+**Background / design rationale** (so future-me doesn't relitigate):
+- Plugin commands live at `commands/<name>.md` at plugin root (not under `.claude-plugin/`).
+- Plugin skills/commands invoke as `/<plugin-name>:<name>` — so this one is `/claude-pal:pal-brainstorm`. Short form (`/pal-brainstorm`) only works for standalone skills, not plugins.
+- Explicit slash invocation is the reliable path; natural-language invocation is supported but fragile per known Claude Code limitations (see GitHub issue #10768 era). Sharp `Use when ...` descriptions raise the NL hit rate but don't make it deterministic, which is why the explicit command exists.
+- No `dependencies`/`requires` field in `plugin.json`. Dependency on `superpowers` is communicated in-prompt and via README; Claude can't programmatically check installed plugins, so the "superpowers missing" fallback is soft-gated through the command body.
+
+- [ ] **Step 1: Write the command file**
+
+```bash
+mkdir -p ~/repos/claude-pal/commands
+cat > ~/repos/claude-pal/commands/pal-brainstorm.md <<'EOF'
+---
+description: Use when the user wants to go from an idea to a pull request with pal — orchestrates the full flow (brainstorm → plan → publish → dispatch). Use when user says "plan an issue for pal", "have pal build this", "help me get pal to work on a feature", "brainstorm something for pal to implement", or similar. Depends on the superpowers plugin for the brainstorm and plan-writing steps.
+---
+
+# pal-brainstorm
+
+Guide the user from an idea to a dispatched pal run that opens a PR.
+
+**User's seed idea (may be empty):** $ARGUMENTS
+
+## Prerequisite check
+
+This flow depends on the `superpowers` plugin (provides `brainstorming` and `writing-plans` skills). If those skills are not listed in your current session's available skills, stop and tell the user:
+
+> The /claude-pal:pal-brainstorm flow uses skills from the `superpowers` plugin. Install it from the `claude-plugins-official` marketplace, then run /claude-pal:pal-brainstorm again.
+
+Do not attempt to proceed past this check if `superpowers:brainstorming` or `superpowers:writing-plans` are unavailable.
+
+## Flow
+
+1. **Brainstorm.** Invoke `superpowers:brainstorming` with the user's seed idea ($ARGUMENTS) to explore intent, requirements, and design. Let the brainstorming skill drive — don't short-circuit it.
+2. **Write the plan.** Once the brainstorm converges, invoke `superpowers:writing-plans` to produce an implementation plan file under `docs/superpowers/plans/`.
+3. **Checkpoint.** Show the user the plan file path and ask them to confirm before publishing to GitHub. If they want revisions, loop back to writing-plans.
+4. **Publish.** Invoke the `pal-plan` skill (or `/claude-pal:pal-plan`) to post the plan as a GitHub issue comment. If the user hasn't named an existing issue, pal-plan will create a new one. Share the resulting issue URL with the user.
+5. **Confirm.** Ask the user to review the posted plan on GitHub and confirm before dispatching. Offer to run /claude-pal:pal-implement in sync or async mode.
+6. **Implement.** Invoke the `pal-implement` skill (or `/claude-pal:pal-implement <issue#>`) with `--async` if the user requested background execution. Otherwise run sync and stream the status to the user.
+
+## Stopping points
+
+Stop and ask the user between steps if:
+- The brainstorm hasn't converged on concrete requirements.
+- The generated plan looks too large or ambiguous to hand off to pal.
+- The issue body needs manual edits on GitHub before dispatch.
+
+Do not combine steps or skip the checkpoint before publishing — review is the point.
+EOF
+```
+
+- [ ] **Step 2: Sharpen pal-plan's description for NL invocation**
+
+Edit the `description:` field in `~/repos/claude-pal/skills/pal-plan/SKILL.md` so Claude's skill-selector matches natural phrasing. Keep the body unchanged.
+
+New description:
+
+```
+description: Use when the user wants to publish an implementation plan to GitHub for pal to pick up. Takes the most recent plan file in docs/superpowers/plans/ (or an explicit --file path) and posts it as an issue comment with <!-- agent-plan --> marker. Creates a new issue if no issue number given. Use when user says "publish this plan", "post the plan to GitHub", "create an issue for pal", or has a plan file ready and wants pal to see it. Does NOT launch a container — it's a checkpoint before /claude-pal:pal-implement.
+```
+
+- [ ] **Step 3: Sharpen pal-implement's description for NL invocation**
+
+Edit the `description:` field in `~/repos/claude-pal/skills/pal-implement/SKILL.md`:
+
+```
+description: Use when the user wants pal to actually start working on a GitHub issue. Launches an ephemeral Docker container that reads the plan from the issue and runs a gated pipeline (adversarial plan review → TDD implementation → post-impl review → opens PR). Use when user says "have pal implement this", "kick off pal on issue #N", "dispatch pal", "run the pal container on this issue", or similar. Sync by default; pass --async to background.
+```
+
+- [ ] **Step 4: Validate manifest and run tests**
+
+```bash
+claude plugin validate ~/repos/claude-pal
+cd ~/repos/claude-pal
+./tests/bats/bin/bats tests/
+shellcheck lib/*.sh image/opt/pal/lib/*.sh image/opt/pal/entrypoint.sh
+```
+
+All three must pass. No new bats test for the command itself — commands are markdown prompts, not shell code, and their behavior is model-executed rather than deterministic. Coverage for the underlying skills (`pal-plan`, `pal-implement`) already exists.
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd ~/repos/claude-pal
+git add commands/pal-brainstorm.md skills/pal-plan/SKILL.md skills/pal-implement/SKILL.md
+git commit -m "feat(plugin): pal-brainstorm orchestrator command + sharpen NL descriptions"
+```
+
+**Milestone:** Three user-visible entry points now exist — `/claude-pal:pal-brainstorm` (full flow), `/claude-pal:pal-plan` (publish a pre-written plan), `/claude-pal:pal-implement` (dispatch on an existing issue). Descriptions on the two skills are tuned for natural-language invocation so the typical interaction is "have pal build this" rather than explicit slash typing.
 
 ---
 
