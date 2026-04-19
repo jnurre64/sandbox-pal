@@ -92,6 +92,8 @@ apply_firewall "$PAL_HOME/allowlist.yaml" || {
 . "$LIB_DIR/worktree.sh"
 # shellcheck source=/dev/null
 . "$LIB_DIR/fetch-context.sh"
+# shellcheck source=/dev/null
+. "$LIB_DIR/claude-runner.sh"
 
 STATUS_PHASE="cloning"
 setup_worktree "$REPO" "$NUMBER" "$EVENT_TYPE" || {
