@@ -1,6 +1,6 @@
 ---
 name: pal-implement
-description: Launch an ephemeral Docker container that executes the posted plan on a GitHub issue. Runs a gated pipeline (adversarial plan review → TDD implementation → post-impl review → PR open). Sync by default; pass --async to background.
+description: Use when the user wants pal to actually start working on a GitHub issue. Launches an ephemeral Docker container that reads the plan from the issue and runs a gated pipeline (adversarial plan review → TDD implementation → post-impl review → opens PR). Use when user says "have pal implement this", "kick off pal on issue #N", "dispatch pal", "run the pal container on this issue", or similar. Sync by default; pass --async to background.
 ---
 
 # pal-implement
