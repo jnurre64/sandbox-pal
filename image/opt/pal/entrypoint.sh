@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091  # Sourced lib files resolved at runtime
 set -euo pipefail
 
 # ─── Args: <event_type> <repo> <number> ─────────────────────────
@@ -6,34 +7,84 @@ EVENT_TYPE="${1:?Usage: entrypoint.sh <event_type> <repo> <number>}"
 REPO="${2:?}"
 NUMBER="${3:?}"
 
-# ─── Status file path (bind-mounted from host) ──────────────────
+# ─── Paths ───────────────────────────────────────────────────────
+PAL_HOME="/opt/pal"
+# shellcheck disable=SC2034  # PROMPTS_DIR is read by lib/claude-runner.sh (sourced later)
+PROMPTS_DIR="$PAL_HOME/prompts"
+LIB_DIR="$PAL_HOME/lib"
 STATUS_DIR="${PAL_STATUS_DIR:-/status}"
-mkdir -p "$STATUS_DIR"
+WORKTREE_DIR="${WORKTREE_DIR:-/home/agent/work}"
+AGENT_DATA_DIR="${AGENT_DATA_DIR:-/home/agent/.agent-data}"
 
+mkdir -p "$STATUS_DIR" "$WORKTREE_DIR" "$AGENT_DATA_DIR"
+
+# ─── Status tracking (mutated across phases, emitted at end) ────
+STATUS_PHASE="init"
+STATUS_OUTCOME="failure"            # default; set to "success" on happy path
+STATUS_FAILURE_REASON=""
+STATUS_PR_NUMBER="null"
+STATUS_PR_URL="null"
+STATUS_COMMITS="[]"
+STATUS_REVIEW_CONCERNS_ADDRESSED="[]"
+STATUS_REVIEW_CONCERNS_UNRESOLVED="[]"
+STATUS_STARTED_AT="$(date -u +%FT%TZ)"
+
+# ─── Logging ─────────────────────────────────────────────────────
+LOG_FILE="$STATUS_DIR/log"
 log() {
-    printf '[%s] %s\n' "$(date -Iseconds)" "$*" | tee -a "$STATUS_DIR/log"
+    printf '[%s] %s\n' "$(date -Iseconds)" "$*" | tee -a "$LOG_FILE" >&2
 }
 
-# ─── Placeholder for Phase 2: report a trivial success and exit ──
-log "claude-pal entrypoint v0.1 (scaffold)"
-log "EVENT_TYPE=$EVENT_TYPE REPO=$REPO NUMBER=$NUMBER"
-log "Verifying claude CLI is present..."
-claude --version | tee -a "$STATUS_DIR/log"
-log "Verifying gh CLI is present..."
-gh --version | tee -a "$STATUS_DIR/log"
-
-cat > "$STATUS_DIR/status.json.tmp" <<EOF
+# ─── status.json writer (atomic) ─────────────────────────────────
+write_status() {
+    local completed_at="${1:-$(date -u +%FT%TZ)}"
+    cat > "$STATUS_DIR/status.json.tmp" <<EOF
 {
-  "phase": "complete",
-  "outcome": "success",
-  "failure_reason": null,
-  "pr_number": null,
-  "pr_url": null,
-  "commits": [],
+  "phase": "$STATUS_PHASE",
+  "outcome": "$STATUS_OUTCOME",
+  "failure_reason": $([ -z "$STATUS_FAILURE_REASON" ] && echo null || printf '"%s"' "$STATUS_FAILURE_REASON"),
+  "started_at": "$STATUS_STARTED_AT",
+  "completed_at": "$completed_at",
+  "pr_number": $STATUS_PR_NUMBER,
+  "pr_url": $STATUS_PR_URL,
+  "commits": $STATUS_COMMITS,
+  "review_concerns_addressed": $STATUS_REVIEW_CONCERNS_ADDRESSED,
+  "review_concerns_unresolved": $STATUS_REVIEW_CONCERNS_UNRESOLVED,
   "event_type": "$EVENT_TYPE",
   "repo": "$REPO",
   "number": $NUMBER
 }
 EOF
-mv "$STATUS_DIR/status.json.tmp" "$STATUS_DIR/status.json"
-log "Scaffold run complete."
+    mv "$STATUS_DIR/status.json.tmp" "$STATUS_DIR/status.json"
+}
+
+# ─── Global error trap: write a failure status before exit ──────
+on_error() {
+    local ec=$?
+    [ "$ec" -eq 0 ] && return 0
+    log "entrypoint failed at line ${1:-?} with exit code $ec (phase=$STATUS_PHASE)"
+    if [ -z "$STATUS_FAILURE_REASON" ]; then
+        STATUS_FAILURE_REASON="uncaught_error_at_line_${1:-unknown}_exit_${ec}"
+    fi
+    STATUS_OUTCOME="failure"
+    write_status
+}
+trap 'on_error $LINENO' ERR
+trap 'write_status' EXIT
+
+# ─── Source lib files (review-gates provides gate functions) ────
+# shellcheck source=/dev/null
+. "$LIB_DIR/review-gates.sh"
+
+# ─── Main pipeline (filled in by later tasks) ───────────────────
+log "claude-pal v0.2 entrypoint"
+log "event=$EVENT_TYPE repo=$REPO number=$NUMBER"
+
+STATUS_PHASE="fetching_context"
+# (Task 2.3 adds repo clone + worktree)
+# (Task 2.4 adds issue/plan fetching)
+# (Tasks 2.5–2.11 add pipeline phases)
+
+# Placeholder for now so the skeleton runs to completion
+STATUS_OUTCOME="success"
+STATUS_PHASE="complete"
