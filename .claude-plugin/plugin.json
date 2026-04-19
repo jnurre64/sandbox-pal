@@ -1,0 +1,9 @@
+{
+  "name": "claude-pal",
+  "version": "0.4.0",
+  "description": "Local agent dispatch for Claude Code — publishes implementation plans to GitHub and runs a gated pipeline (adversarial plan review → TDD implement → post-impl review → PR) inside an ephemeral Docker container.",
+  "author": { "name": "jnurre64" },
+  "repository": "https://github.com/jnurre64/claude-pal",
+  "license": "MIT",
+  "keywords": ["agents", "automation", "github", "docker"]
+}

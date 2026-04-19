@@ -1,0 +1,23 @@
+# image/opt/pal/allowlist.yaml
+# Outbound domains permitted from the container. Extended per-run via PAL_ALLOWLIST_EXTRA_DOMAINS.
+
+domains:
+  # Anthropic
+  - api.anthropic.com
+  - console.anthropic.com
+  # GitHub
+  - github.com
+  - api.github.com
+  - codeload.github.com
+  - objects.githubusercontent.com
+  - raw.githubusercontent.com
+  - uploads.github.com
+  # Package registries (base)
+  - registry.npmjs.org
+  - pypi.org
+  - files.pythonhosted.org
+  - api.nuget.org
+  # Ubuntu repositories (for apt during build; runtime usually skips)
+  - deb.debian.org
+  - security.ubuntu.com
+  - archive.ubuntu.com
