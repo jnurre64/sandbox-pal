@@ -16,12 +16,12 @@ Launch a claude-pal container to implement a GitHub issue's posted plan.
 ## Steps
 
 1. Parse arguments. Require exactly one positional argument (issue number); `--async` flag is optional.
-2. Source the shared libs:
+2. Source the shared libs (`${CLAUDE_PLUGIN_ROOT}` is set by Claude Code when the skill fires):
    ```bash
-   . "$(dirname "$(claude-skill-path pal-implement)")/../lib/config.sh"
-   . "$(dirname "$(claude-skill-path pal-implement)")/../lib/preflight.sh"
-   . "$(dirname "$(claude-skill-path pal-implement)")/../lib/runs.sh"
-   . "$(dirname "$(claude-skill-path pal-implement)")/../lib/launcher.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/config.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/preflight.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/runs.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/launcher.sh"
    ```
 3. Determine the target repo. If the current working directory is inside a git repo, use its origin remote. Otherwise require `PAL_REPO` env var.
 4. Run `pal_preflight_all "$repo" "$issue_num"`. On failure, exit with the preflight's own error.

@@ -45,19 +45,21 @@ teardown() {
 }
 
 @test "pal-implement happy path with mocked docker" {
-    source "$REPO_ROOT/skills/lib/config.sh"
-    source "$REPO_ROOT/skills/lib/preflight.sh"
-    source "$REPO_ROOT/skills/lib/runs.sh"
-    source "$REPO_ROOT/skills/lib/launcher.sh"
+    export CLAUDE_PLUGIN_ROOT="$REPO_ROOT"
+    source "$REPO_ROOT/lib/config.sh"
+    source "$REPO_ROOT/lib/preflight.sh"
+    source "$REPO_ROOT/lib/runs.sh"
+    source "$REPO_ROOT/lib/launcher.sh"
 
     # Stub pal_preflight_gh_auth to skip network call
     pal_preflight_gh_auth() { :; }
 
     run bash -c "
-        source '$REPO_ROOT/skills/lib/config.sh'
-        source '$REPO_ROOT/skills/lib/preflight.sh'
-        source '$REPO_ROOT/skills/lib/runs.sh'
-        source '$REPO_ROOT/skills/lib/launcher.sh'
+        export CLAUDE_PLUGIN_ROOT='$REPO_ROOT'
+        source '$REPO_ROOT/lib/config.sh'
+        source '$REPO_ROOT/lib/preflight.sh'
+        source '$REPO_ROOT/lib/runs.sh'
+        source '$REPO_ROOT/lib/launcher.sh'
         pal_preflight_gh_auth() { :; }
         pal_preflight_all 'owner/repo' 42
         run_id=\$(pal_new_run_id)

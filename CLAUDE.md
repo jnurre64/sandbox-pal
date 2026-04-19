@@ -1,6 +1,6 @@
 # claude-pal
 
-Local agent dispatch via Claude Code skills.
+Local agent dispatch via a Claude Code plugin.
 
 ## Key Documentation
 
@@ -10,13 +10,16 @@ Local agent dispatch via Claude Code skills.
 
 ## Architecture
 
+claude-pal ships as a Claude Code plugin. Shared bash helpers under plugin-root `lib/` are referenced from every `SKILL.md` via `${CLAUDE_PLUGIN_ROOT}` (set by Claude Code at skill-invocation time). Do NOT use `claude-skill-path` or `$(dirname "${BASH_SOURCE[0]}")` dances in `SKILL.md` — use `${CLAUDE_PLUGIN_ROOT}/lib/foo.sh`.
+
+- `.claude-plugin/plugin.json` — Claude Code plugin manifest
 - `image/Dockerfile` — base Ubuntu image with claude CLI, gh, jq, git, iptables
 - `image/opt/pal/entrypoint.sh` — pipeline orchestrator (bash)
 - `image/opt/pal/allowlist.yaml` — firewall allowlist (data)
 - `image/opt/pal/prompts/` — vendored adversarial/post-impl review prompts
-- `image/opt/pal/lib/` — bash helpers (vendored review-gates.sh etc.)
+- `image/opt/pal/lib/` — bash helpers inside the container (vendored review-gates.sh etc.)
+- `lib/` — shared plugin-side helpers (config loader, preflight, launcher, etc.); sourced via `${CLAUDE_PLUGIN_ROOT}/lib/...`
 - `skills/pal-*/SKILL.md` — Claude Code skills (host-side)
-- `skills/lib/` — shared skill helpers (config loader, notifier, etc.)
 - `tests/` — BATS-Core tests
 
 ## Development

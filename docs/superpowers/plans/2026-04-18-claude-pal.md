@@ -6,6 +6,8 @@
 
 **Architecture:** Host-side Claude Code skills (bash, Git Bash on Windows) read a user-owned `config.env`, run preflight checks, and invoke `docker run` against a purpose-built Ubuntu image. The container runs a bash entrypoint that orchestrates 3–5 `claude -p` calls (different tool allowlists per phase) with the review-gate prompts vendored from `jnurre64/claude-agent-dispatch`. Communication between host and container is one-directional: host → container via env vars + bind-mounted `/status` directory; container → host via `/status/status.json` and `/status/log`. Async mode adds a forked watcher that fires a desktop notification on container exit.
 
+**Host-side layout is a Claude Code plugin.** The host-side skills ship as a single plugin with the canonical layout documented in the official `plugin-dev/plugin-structure` skill: a `.claude-plugin/plugin.json` manifest at the plugin root, `skills/<skill-name>/SKILL.md` for each skill, and shared bash helpers under plugin-root `lib/` (not `skills/lib/`). SKILL.md files resolve helpers via the `${CLAUDE_PLUGIN_ROOT}` env var that Claude Code sets when a skill fires — e.g. `. "${CLAUDE_PLUGIN_ROOT}/lib/config.sh"`. This is the pattern used by the official `plugin-dev` plugin and `superpowers` itself; see `references/component-patterns.md` in the official `plugin-dev` skill for the "Shared Resources" example.
+
 **Tech Stack:** Bash 5+, Docker 20+ (Linux containers mode), Claude Code CLI (headless `claude -p`), GitHub CLI (`gh`), `jq`, BATS-Core for testing, Ubuntu 24.04 base image, `notify-send` / `osascript` / BurntToast for cross-platform notifications.
 
 **Repo location:** The `claude-pal` repo lives at `~/repos/claude-pal/` (under the host's existing `~/repos/` directory alongside other project checkouts). Phase 1 Task 1.1 originally created it at `~/claude-pal/`; that was moved to `~/repos/claude-pal/` during Phase 1 execution. All path references in this plan have been updated to the canonical `~/repos/claude-pal/`. The plan itself now lives at `docs/superpowers/plans/2026-04-18-claude-pal.md` inside that repo.
@@ -167,8 +169,9 @@ Local agent dispatch via Claude Code skills.
 - `image/opt/pal/allowlist.yaml` — firewall allowlist (data)
 - `image/opt/pal/prompts/` — vendored adversarial/post-impl review prompts
 - `image/opt/pal/lib/` — bash helpers (vendored review-gates.sh etc.)
+- `.claude-plugin/plugin.json` — Claude Code plugin manifest
 - `skills/pal-*/SKILL.md` — Claude Code skills (host-side)
-- `skills/lib/` — shared skill helpers (config loader, notifier, etc.)
+- `lib/` — shared skill helpers (config loader, notifier, etc.); referenced via `${CLAUDE_PLUGIN_ROOT}/lib/...`
 - `tests/` — BATS-Core tests
 
 ## Development
@@ -1476,19 +1479,59 @@ git commit -m "test(container): end-to-end pipeline integration test"
 
 ## Phase 3: `/pal-implement` skill (sync mode)
 
-### Task 3.1: Skill directory structure and config loader
+> **Plugin layout (applies to all Phase 3–6 tasks).** The host-side skills are a Claude Code plugin. The canonical layout (per the official `plugin-dev/plugin-structure` skill) is:
+>
+> ```
+> ~/repos/claude-pal/
+> ├── .claude-plugin/plugin.json   # plugin manifest
+> ├── lib/                         # shared bash helpers (plugin root!)
+> │   ├── config.sh
+> │   ├── preflight.sh
+> │   └── …
+> └── skills/
+>     ├── pal-implement/SKILL.md
+>     ├── pal-plan/SKILL.md
+>     └── …
+> ```
+>
+> **Shared helpers go at plugin-root `lib/`, NOT under `skills/lib/`.** SKILL.md files resolve them via `${CLAUDE_PLUGIN_ROOT}`, which Claude Code populates at skill-invocation time:
+>
+> ```bash
+> . "${CLAUDE_PLUGIN_ROOT}/lib/config.sh"
+> ```
+>
+> This matches the pattern used by the official `plugin-dev` plugin (see `plugin-dev/skills/plugin-structure/references/component-patterns.md`, "Shared Resources") and by `superpowers` itself (`hooks/session-start` reads `${CLAUDE_PLUGIN_ROOT}` directly). Do not use `$(dirname "$(claude-skill-path …)")` dances — that pseudo-command does not exist.
+
+### Task 3.1: Plugin manifest, skill directory structure, and config loader
 
 **Files:**
-- Create: `~/repos/claude-pal/skills/pal-implement/SKILL.md`
-- Create: `~/repos/claude-pal/skills/lib/config.sh`
+- Create: `~/repos/claude-pal/.claude-plugin/plugin.json`
+- Create: `~/repos/claude-pal/skills/pal-implement/` (directory)
+- Create: `~/repos/claude-pal/lib/config.sh`
 
-- [ ] **Step 1: Write the config loader**
+- [ ] **Step 1: Write the plugin manifest**
 
 ```bash
-mkdir -p ~/repos/claude-pal/skills/lib ~/repos/claude-pal/skills/pal-implement
+mkdir -p ~/repos/claude-pal/.claude-plugin ~/repos/claude-pal/lib ~/repos/claude-pal/skills/pal-implement
 
-cat > ~/repos/claude-pal/skills/lib/config.sh <<'EOF'
-# skills/lib/config.sh
+cat > ~/repos/claude-pal/.claude-plugin/plugin.json <<'EOF'
+{
+  "name": "claude-pal",
+  "version": "0.1.0",
+  "description": "Local agent dispatch for Claude Code — publishes implementation plans to GitHub and runs a gated pipeline (adversarial plan review → TDD implement → post-impl review → PR) inside an ephemeral Docker container.",
+  "author": { "name": "jnurre64" },
+  "repository": "https://github.com/jnurre64/claude-pal",
+  "license": "MIT",
+  "keywords": ["agents", "automation", "github", "docker"]
+}
+EOF
+```
+
+- [ ] **Step 2: Write the config loader**
+
+```bash
+cat > ~/repos/claude-pal/lib/config.sh <<'EOF'
+# lib/config.sh
 # Resolve and load the claude-pal host config.
 # Returns config values via stdout or sets variables depending on caller.
 
@@ -1547,30 +1590,30 @@ pal_config_permissions_ok() {
 EOF
 ```
 
-- [ ] **Step 2: shellcheck**
+- [ ] **Step 3: shellcheck**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/config.sh
+shellcheck ~/repos/claude-pal/lib/config.sh
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 cd ~/repos/claude-pal
-git add skills/lib/config.sh skills/pal-implement/
-git commit -m "feat(skills): config loader with platform-aware path resolution"
+git add .claude-plugin/plugin.json lib/config.sh skills/pal-implement/
+git commit -m "feat(plugin): manifest + config loader at plugin-root lib/"
 ```
 
 ### Task 3.2: Preflight check helpers
 
 **Files:**
-- Create: `~/repos/claude-pal/skills/lib/preflight.sh`
+- Create: `~/repos/claude-pal/lib/preflight.sh`
 
 - [ ] **Step 1: Write preflight checks**
 
 ```bash
-cat > ~/repos/claude-pal/skills/lib/preflight.sh <<'EOF'
-# skills/lib/preflight.sh
+cat > ~/repos/claude-pal/lib/preflight.sh <<'EOF'
+# lib/preflight.sh
 # Preflight checks run before every dispatch.
 
 pal_preflight_no_api_key_in_env() {
@@ -1670,27 +1713,27 @@ EOF
 - [ ] **Step 2: shellcheck**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/preflight.sh
+shellcheck ~/repos/claude-pal/lib/preflight.sh
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
 cd ~/repos/claude-pal
-git add skills/lib/preflight.sh
-git commit -m "feat(skills): preflight check helpers (auth, docker, windows-bash, gh, lock)"
+git add lib/preflight.sh
+git commit -m "feat(plugin): preflight check helpers (auth, docker, windows-bash, gh, lock)"
 ```
 
 ### Task 3.3: Run registry helper
 
 **Files:**
-- Create: `~/repos/claude-pal/skills/lib/runs.sh`
+- Create: `~/repos/claude-pal/lib/runs.sh`
 
 - [ ] **Step 1: Write runs.sh**
 
 ```bash
-cat > ~/repos/claude-pal/skills/lib/runs.sh <<'EOF'
-# skills/lib/runs.sh
+cat > ~/repos/claude-pal/lib/runs.sh <<'EOF'
+# lib/runs.sh
 # Run registry: directory layout, run id generation, reconciliation.
 
 pal_runs_dir() {
@@ -1765,24 +1808,24 @@ EOF
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/runs.sh
+shellcheck ~/repos/claude-pal/lib/runs.sh
 cd ~/repos/claude-pal
-git add skills/lib/runs.sh
-git commit -m "feat(skills): run registry helpers (dir layout, run ids, lock files)"
+git add lib/runs.sh
+git commit -m "feat(plugin): run registry helpers (dir layout, run ids, lock files)"
 ```
 
 ### Task 3.4: Docker launcher (sync mode)
 
 **Files:**
-- Create: `~/repos/claude-pal/skills/lib/launcher.sh`
+- Create: `~/repos/claude-pal/lib/launcher.sh`
 
 > **Bind-mount permissions (Linux hosts):** The container runs as the non-root `agent` user defined in the Dockerfile. On Linux, that user's UID usually differs from the host user's, so the bind-mounted `/status` dir needs to be writable by "other" or the entrypoint's `tee`/status writes fail with `Permission denied`. The launcher `chmod 0777`s `run_dir` before `docker run`. (On macOS/Docker Desktop the virtualized file sharing rewrites ownership, so this is effectively a no-op there; on Windows/Docker Desktop the NTFS ACL check in Phase 7 covers the analogous concern.) The Phase 1 smoke test already applies this chmod for the same reason.
 
 - [ ] **Step 1: Write launcher.sh**
 
 ```bash
-cat > ~/repos/claude-pal/skills/lib/launcher.sh <<'EOF'
-# skills/lib/launcher.sh
+cat > ~/repos/claude-pal/lib/launcher.sh <<'EOF'
+# lib/launcher.sh
 # Backend adapter: launches the container via docker run.
 
 pal_launch_sync() {
@@ -1884,10 +1927,10 @@ EOF
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/launcher.sh
+shellcheck ~/repos/claude-pal/lib/launcher.sh
 cd ~/repos/claude-pal
-git add skills/lib/launcher.sh
-git commit -m "feat(skills): docker sync launcher and status pretty-printer"
+git add lib/launcher.sh
+git commit -m "feat(plugin): docker sync launcher and status pretty-printer"
 ```
 
 ### Task 3.5: `/pal-implement` skill markdown
@@ -1916,12 +1959,12 @@ Launch a claude-pal container to implement a GitHub issue's posted plan.
 ## Steps
 
 1. Parse arguments. Require exactly one positional argument (issue number); `--async` flag is optional.
-2. Source the shared libs:
+2. Source the shared libs (`${CLAUDE_PLUGIN_ROOT}` is set by Claude Code when the skill fires):
    ```bash
-   . "$(dirname "$(claude-skill-path pal-implement)")/../lib/config.sh"
-   . "$(dirname "$(claude-skill-path pal-implement)")/../lib/preflight.sh"
-   . "$(dirname "$(claude-skill-path pal-implement)")/../lib/runs.sh"
-   . "$(dirname "$(claude-skill-path pal-implement)")/../lib/launcher.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/config.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/preflight.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/runs.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/launcher.sh"
    ```
 3. Determine the target repo. If the current working directory is inside a git repo, use its origin remote. Otherwise require `PAL_REPO` env var.
 4. Run `pal_preflight_all "$repo" "$issue_num"`. On failure, exit with the preflight's own error.
@@ -1943,7 +1986,7 @@ If `--async` flag is given, instead of steps 6-8 use the async path (implemented
 ```bash
 cd ~/repos/claude-pal
 git add skills/pal-implement/SKILL.md
-git commit -m "feat(skills): pal-implement SKILL.md (sync mode)"
+git commit -m "feat(plugin): pal-implement SKILL.md (sync mode)"
 ```
 
 ### Task 3.6: Skill smoke test
@@ -2002,19 +2045,20 @@ teardown() {
 }
 
 @test "pal-implement happy path with mocked docker" {
-    source "$REPO_ROOT/skills/lib/config.sh"
-    source "$REPO_ROOT/skills/lib/preflight.sh"
-    source "$REPO_ROOT/skills/lib/runs.sh"
-    source "$REPO_ROOT/skills/lib/launcher.sh"
+    source "$REPO_ROOT/lib/config.sh"
+    source "$REPO_ROOT/lib/preflight.sh"
+    source "$REPO_ROOT/lib/runs.sh"
+    source "$REPO_ROOT/lib/launcher.sh"
 
     # Stub pal_preflight_gh_auth to skip network call
     pal_preflight_gh_auth() { :; }
 
     run bash -c "
-        source '$REPO_ROOT/skills/lib/config.sh'
-        source '$REPO_ROOT/skills/lib/preflight.sh'
-        source '$REPO_ROOT/skills/lib/runs.sh'
-        source '$REPO_ROOT/skills/lib/launcher.sh'
+        export CLAUDE_PLUGIN_ROOT='$REPO_ROOT'
+        source '$REPO_ROOT/lib/config.sh'
+        source '$REPO_ROOT/lib/preflight.sh'
+        source '$REPO_ROOT/lib/runs.sh'
+        source '$REPO_ROOT/lib/launcher.sh'
         pal_preflight_gh_auth() { :; }
         pal_preflight_all 'owner/repo' 42
         run_id=\$(pal_new_run_id)
@@ -2041,7 +2085,7 @@ cd ~/repos/claude-pal
 ```bash
 cd ~/repos/claude-pal
 git add tests/test_skill_pal_implement.bats
-git commit -m "test(skills): pal-implement happy path smoke test with mocked docker"
+git commit -m "test(plugin): pal-implement happy path smoke test with mocked docker"
 ```
 
 **Milestone:** `/pal-implement <issue#>` works end-to-end against a real test repo (documented in Phase 2 Task 2.10) in sync mode.
@@ -2053,13 +2097,13 @@ git commit -m "test(skills): pal-implement happy path smoke test with mocked doc
 ### Task 4.1: Plan file locator
 
 **Files:**
-- Create: `~/repos/claude-pal/skills/lib/plan-locator.sh`
+- Create: `~/repos/claude-pal/lib/plan-locator.sh`
 
 - [ ] **Step 1: Write plan-locator.sh**
 
 ```bash
-cat > ~/repos/claude-pal/skills/lib/plan-locator.sh <<'EOF'
-# skills/lib/plan-locator.sh
+cat > ~/repos/claude-pal/lib/plan-locator.sh <<'EOF'
+# lib/plan-locator.sh
 # Locate the implementation plan file to publish.
 
 pal_find_plan_file() {
@@ -2095,22 +2139,22 @@ EOF
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/plan-locator.sh
+shellcheck ~/repos/claude-pal/lib/plan-locator.sh
 cd ~/repos/claude-pal
-git add skills/lib/plan-locator.sh
-git commit -m "feat(skills): plan-locator for auto-detecting plan files"
+git add lib/plan-locator.sh
+git commit -m "feat(plugin): plan-locator for auto-detecting plan files"
 ```
 
 ### Task 4.2: Plan publisher
 
 **Files:**
-- Create: `~/repos/claude-pal/skills/lib/publisher.sh`
+- Create: `~/repos/claude-pal/lib/publisher.sh`
 
 - [ ] **Step 1: Write publisher.sh**
 
 ```bash
-cat > ~/repos/claude-pal/skills/lib/publisher.sh <<'EOF'
-# skills/lib/publisher.sh
+cat > ~/repos/claude-pal/lib/publisher.sh <<'EOF'
+# lib/publisher.sh
 # Publish a plan file as an issue comment (with <!-- agent-plan --> marker).
 
 pal_publish_plan() {
@@ -2165,10 +2209,10 @@ EOF
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/publisher.sh
+shellcheck ~/repos/claude-pal/lib/publisher.sh
 cd ~/repos/claude-pal
-git add skills/lib/publisher.sh
-git commit -m "feat(skills): plan publisher (new issue or comment on existing)"
+git add lib/publisher.sh
+git commit -m "feat(plugin): plan publisher (new issue or comment on existing)"
 ```
 
 ### Task 4.3: `/pal-plan` skill markdown
@@ -2199,11 +2243,11 @@ Publish a plan to GitHub for later dispatch.
 ## Steps
 
 1. Parse arguments: zero or one positional issue number; optional `--file <path>`.
-2. Source shared libs:
+2. Source shared libs (Claude Code sets `${CLAUDE_PLUGIN_ROOT}` when the skill fires):
    ```bash
-   . "$(dirname "$(claude-skill-path pal-plan)")/../lib/config.sh"
-   . "$(dirname "$(claude-skill-path pal-plan)")/../lib/plan-locator.sh"
-   . "$(dirname "$(claude-skill-path pal-plan)")/../lib/publisher.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/config.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/plan-locator.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/publisher.sh"
    ```
 3. Load config: `pal_load_config`.
 4. Locate the plan file: `plan_file=$(pal_find_plan_file "$file_arg")`. On failure, exit with the locator's error.
@@ -2224,7 +2268,7 @@ EOF
 ```bash
 cd ~/repos/claude-pal
 git add skills/pal-plan/SKILL.md
-git commit -m "feat(skills): pal-plan SKILL.md"
+git commit -m "feat(plugin): pal-plan SKILL.md"
 ```
 
 ### Task 4.4: `/pal-plan` smoke test
@@ -2287,9 +2331,10 @@ teardown() {
 
 @test "pal-plan with existing issue posts a comment" {
     cd "$WORKDIR"
-    source "$REPO_ROOT/skills/lib/config.sh"
-    source "$REPO_ROOT/skills/lib/plan-locator.sh"
-    source "$REPO_ROOT/skills/lib/publisher.sh"
+    export CLAUDE_PLUGIN_ROOT="$REPO_ROOT"
+    source "$REPO_ROOT/lib/config.sh"
+    source "$REPO_ROOT/lib/plan-locator.sh"
+    source "$REPO_ROOT/lib/publisher.sh"
     pal_load_config
     plan=$(pal_find_plan_file)
 
@@ -2301,9 +2346,10 @@ teardown() {
 
 @test "pal-plan without issue creates a new one" {
     cd "$WORKDIR"
-    source "$REPO_ROOT/skills/lib/config.sh"
-    source "$REPO_ROOT/skills/lib/plan-locator.sh"
-    source "$REPO_ROOT/skills/lib/publisher.sh"
+    export CLAUDE_PLUGIN_ROOT="$REPO_ROOT"
+    source "$REPO_ROOT/lib/config.sh"
+    source "$REPO_ROOT/lib/plan-locator.sh"
+    source "$REPO_ROOT/lib/publisher.sh"
     pal_load_config
     plan=$(pal_find_plan_file)
 
@@ -2327,7 +2373,7 @@ cd ~/repos/claude-pal
 ```bash
 cd ~/repos/claude-pal
 git add tests/test_skill_pal_plan.bats
-git commit -m "test(skills): pal-plan coverage for new-issue and existing-issue flows"
+git commit -m "test(plugin): pal-plan coverage for new-issue and existing-issue flows"
 ```
 
 **Milestone:** `/pal-plan` and `/pal-implement` together support the core flow: brainstorm → plan file → publish → dispatch.
@@ -2339,13 +2385,13 @@ git commit -m "test(skills): pal-plan coverage for new-issue and existing-issue 
 ### Task 5.1: Cross-platform notifier
 
 **Files:**
-- Create: `~/repos/claude-pal/skills/lib/notify.sh`
+- Create: `~/repos/claude-pal/lib/notify.sh`
 
 - [ ] **Step 1: Write notify.sh**
 
 ```bash
-cat > ~/repos/claude-pal/skills/lib/notify.sh <<'EOF'
-# skills/lib/notify.sh
+cat > ~/repos/claude-pal/lib/notify.sh <<'EOF'
+# lib/notify.sh
 # Cross-platform desktop notifier.
 
 pal_notify() {
@@ -2393,20 +2439,20 @@ EOF
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/notify.sh
+shellcheck ~/repos/claude-pal/lib/notify.sh
 cd ~/repos/claude-pal
-git add skills/lib/notify.sh
+git add lib/notify.sh
 git commit -m "feat(skills): cross-platform desktop notifier (Linux/macOS/Windows)"
 ```
 
 ### Task 5.2: Async launcher with watcher
 
 **Files:**
-- Modify: `~/repos/claude-pal/skills/lib/launcher.sh`
+- Modify: `~/repos/claude-pal/lib/launcher.sh`
 
 - [ ] **Step 1: Add async launch function to launcher.sh**
 
-Append to `skills/lib/launcher.sh`:
+Append to `lib/launcher.sh`:
 
 ```bash
 
@@ -2484,9 +2530,9 @@ pal_launch_async() {
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/launcher.sh
+shellcheck ~/repos/claude-pal/lib/launcher.sh
 cd ~/repos/claude-pal
-git add skills/lib/launcher.sh
+git add lib/launcher.sh
 git commit -m "feat(skills): async launcher with forked watcher and notification"
 ```
 
@@ -2520,14 +2566,14 @@ git commit -m "feat(skills): pal-implement now supports --async"
 
 **Files:**
 - Create: `~/repos/claude-pal/skills/pal-status/SKILL.md`
-- Create: `~/repos/claude-pal/skills/lib/status-list.sh`
+- Create: `~/repos/claude-pal/lib/status-list.sh`
 
 - [ ] **Step 1: Write status-list.sh**
 
 ```bash
 mkdir -p ~/repos/claude-pal/skills/pal-status
-cat > ~/repos/claude-pal/skills/lib/status-list.sh <<'EOF'
-# skills/lib/status-list.sh
+cat > ~/repos/claude-pal/lib/status-list.sh <<'EOF'
+# lib/status-list.sh
 # List runs and reconcile against docker ps.
 
 pal_list_runs() {
@@ -2636,7 +2682,12 @@ description: List claude-pal runs or show details on a specific one. Reconciles 
 
 ## Steps
 
-1. Source shared libs (config, runs, status-list).
+1. Source shared libs:
+   ```bash
+   . "${CLAUDE_PLUGIN_ROOT}/lib/config.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/runs.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/status-list.sh"
+   ```
 2. If `--clean` given: `pal_clean_runs "${days:-30}"`. Exit.
 3. If `run_id` given: `pal_show_run "$run_id"`.
 4. Otherwise: `pal_list_runs`.
@@ -2646,10 +2697,10 @@ EOF
 - [ ] **Step 3: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/status-list.sh
+shellcheck ~/repos/claude-pal/lib/status-list.sh
 cd ~/repos/claude-pal
-git add skills/lib/status-list.sh skills/pal-status/SKILL.md
-git commit -m "feat(skills): pal-status for listing/detailing/cleaning runs"
+git add lib/status-list.sh skills/pal-status/SKILL.md
+git commit -m "feat(plugin): pal-status for listing/detailing/cleaning runs"
 ```
 
 ### Task 5.5: `/pal-logs` skill
@@ -2677,7 +2728,11 @@ description: Tail logs for a claude-pal run. Supports --follow to stream live ou
 
 ## Steps
 
-1. Source shared libs.
+1. Source shared libs:
+   ```bash
+   . "${CLAUDE_PLUGIN_ROOT}/lib/config.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/runs.sh"
+   ```
 2. Compute `log_file="$(pal_run_dir "$run_id")/log"`.
 3. If file does not exist, report error and exit 1.
 4. If `--follow` flag given: `tail -f "$log_file"`.
@@ -2690,18 +2745,18 @@ EOF
 ```bash
 cd ~/repos/claude-pal
 git add skills/pal-logs/SKILL.md
-git commit -m "feat(skills): pal-logs skill"
+git commit -m "feat(plugin): pal-logs skill"
 ```
 
 ### Task 5.6: `/pal-cancel` skill
 
 **Files:**
 - Create: `~/repos/claude-pal/skills/pal-cancel/SKILL.md`
-- Modify: `~/repos/claude-pal/skills/lib/launcher.sh`
+- Modify: `~/repos/claude-pal/lib/launcher.sh`
 
 - [ ] **Step 1: Add pal_cancel to launcher.sh**
 
-Append to `skills/lib/launcher.sh`:
+Append to `lib/launcher.sh`:
 
 ```bash
 
@@ -2773,7 +2828,12 @@ description: Cancel an in-flight claude-pal run. Sends SIGTERM (10s grace) then 
 
 ## Steps
 
-1. Source shared libs.
+1. Source shared libs:
+   ```bash
+   . "${CLAUDE_PLUGIN_ROOT}/lib/config.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/runs.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/launcher.sh"
+   ```
 2. Call `pal_cancel_run "$run_id"`.
 EOF
 ```
@@ -2781,10 +2841,10 @@ EOF
 - [ ] **Step 3: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/launcher.sh
+shellcheck ~/repos/claude-pal/lib/launcher.sh
 cd ~/repos/claude-pal
-git add skills/pal-cancel/SKILL.md skills/lib/launcher.sh
-git commit -m "feat(skills): pal-cancel for killing in-flight runs"
+git add skills/pal-cancel/SKILL.md lib/launcher.sh
+git commit -m "feat(plugin): pal-cancel for killing in-flight runs"
 ```
 
 **Milestone:** All run-lifecycle skills (`/pal-status`, `/pal-logs`, `/pal-cancel`) work; `/pal-implement --async` queues runs in the background with desktop notifications on completion.
@@ -2819,7 +2879,13 @@ description: Launch an ephemeral Docker container to address PR review feedback.
 ## Steps
 
 1. Parse: exactly one positional PR number; optional `--async`.
-2. Source shared libs (same as pal-implement).
+2. Source shared libs:
+   ```bash
+   . "${CLAUDE_PLUGIN_ROOT}/lib/config.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/preflight.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/runs.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/launcher.sh"
+   ```
 3. Determine repo from cwd git origin or `PAL_REPO`.
 4. Run `pal_preflight_all "$repo" "$pr_num"`.
 5. Generate run id and write launch meta: `pal_write_launch_meta "$run_id" "$repo" "$pr_num" "revise" "$mode"`.
@@ -2845,7 +2911,7 @@ EOF
 ```bash
 cd ~/repos/claude-pal
 git add skills/pal-revise/SKILL.md
-git commit -m "feat(skills): pal-revise SKILL.md"
+git commit -m "feat(plugin): pal-revise SKILL.md"
 ```
 
 ### Task 6.2: End-to-end revise test
@@ -2912,11 +2978,11 @@ git commit -m "test(container): end-to-end revise pipeline test"
 ### Task 7.1: macOS Keychain loader
 
 **Files:**
-- Modify: `~/repos/claude-pal/skills/lib/config.sh`
+- Modify: `~/repos/claude-pal/lib/config.sh`
 
 - [ ] **Step 1: Add Keychain helpers**
 
-Append to `skills/lib/config.sh`:
+Append to `lib/config.sh`:
 
 ```bash
 
@@ -2964,20 +3030,20 @@ pal_load_config() {
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/config.sh
+shellcheck ~/repos/claude-pal/lib/config.sh
 cd ~/repos/claude-pal
-git add skills/lib/config.sh
+git add lib/config.sh
 git commit -m "feat(skills): auto-detect macOS Keychain-stored OAuth token"
 ```
 
 ### Task 7.2: Windows Credential Manager loader
 
 **Files:**
-- Modify: `~/repos/claude-pal/skills/lib/config.sh`
+- Modify: `~/repos/claude-pal/lib/config.sh`
 
 - [ ] **Step 1: Add Windows Credential Manager helper**
 
-Append to `skills/lib/config.sh`:
+Append to `lib/config.sh`:
 
 ```bash
 
@@ -3028,20 +3094,20 @@ pal_load_config() {
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/config.sh
+shellcheck ~/repos/claude-pal/lib/config.sh
 cd ~/repos/claude-pal
-git add skills/lib/config.sh
+git add lib/config.sh
 git commit -m "feat(skills): auto-detect Windows Credential Manager OAuth token"
 ```
 
 ### Task 7.3: Linux `pass` opt-in integration
 
 **Files:**
-- Modify: `~/repos/claude-pal/skills/lib/config.sh`
+- Modify: `~/repos/claude-pal/lib/config.sh`
 
 - [ ] **Step 1: Add pass support via PAL_CRED_SOURCE env**
 
-Append to `skills/lib/config.sh`:
+Append to `lib/config.sh`:
 
 ```bash
 
@@ -3083,16 +3149,16 @@ pal_load_config() {
 - [ ] **Step 2: shellcheck and commit**
 
 ```bash
-shellcheck ~/repos/claude-pal/skills/lib/config.sh
+shellcheck ~/repos/claude-pal/lib/config.sh
 cd ~/repos/claude-pal
-git add skills/lib/config.sh
+git add lib/config.sh
 git commit -m "feat(skills): opt-in 'pass' integration via PAL_CRED_SOURCE=pass:..."
 ```
 
 ### Task 7.4: Windows NTFS ACL check
 
 **Files:**
-- Modify: `~/repos/claude-pal/skills/lib/config.sh`
+- Modify: `~/repos/claude-pal/lib/config.sh`
 
 - [ ] **Step 1: Implement NTFS ACL validation in pal_config_permissions_ok**
 
@@ -3118,7 +3184,7 @@ Replace the Windows branch in `pal_config_permissions_ok` with:
 
 ```bash
 cd ~/repos/claude-pal
-git add skills/lib/config.sh
+git add lib/config.sh
 git commit -m "feat(skills): validate NTFS ACL on config.env (Windows)"
 ```
 
@@ -3203,19 +3269,25 @@ GH_TOKEN=github_pat_...
 icacls "$env:LOCALAPPDATA\claude-pal\config.env" /inheritance:r /grant:r "${env:USERNAME}:F"
 ```
 
-### 5. Install skills into Claude Code
+### 5. Install as a Claude Code plugin
 
-```bash
-# Copy skills into your Claude Code skill directory
-cp -r skills/pal-* ~/.claude/skills/
+`claude-pal` is a Claude Code plugin (manifest at `.claude-plugin/plugin.json`, shared libs at plugin-root `lib/`, skills under `skills/pal-*/`). Install it so Claude Code discovers the skills and sets `${CLAUDE_PLUGIN_ROOT}` correctly at invocation time.
+
+From a running Claude Code session, add your local checkout as a plugin source:
+
+```
+/plugin install ~/repos/claude-pal
 ```
 
-Or, if this project is ever published as a Claude Code plugin, use `/plugin install`.
+(Or, if installing from a published marketplace, use the marketplace's `/plugin install` flow.)
+
+**Do not** copy skills manually into `~/.claude/skills/` — the `lib/` helpers and `${CLAUDE_PLUGIN_ROOT}` env var only wire up correctly when Claude Code treats the checkout as a plugin.
 
 ### 6. Verify
 
 ```bash
-claude /skills  # should list pal-plan, pal-implement, pal-revise, pal-status, pal-logs, pal-cancel
+/plugin         # should show claude-pal as installed
+/skills         # should list pal-plan, pal-implement, pal-revise, pal-status, pal-logs, pal-cancel
 docker info     # should succeed
 echo $ANTHROPIC_API_KEY  # should be empty — unset it if set
 ```
