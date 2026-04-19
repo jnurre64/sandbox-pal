@@ -2579,6 +2579,8 @@ git commit -m "feat(plugin): pal-setup walkthrough + auth docs + defer Phase 7"
 
 ## Phase 5: Async mode, run registry management, and support skills
 
+**Sequencing note (2026-04-19):** Execute Phase 8 (docs + install guide + first live end-to-end test) BEFORE Phases 5 and 6. Rationale: validating the install/setup story against a real dispatch catches integration gaps that paper review misses. Phases 5 and 6 layer on top of a validated foundation rather than stacking unvalidated complexity. When Phase 8 passes, return here and run 5 → 6 in order; update docs / CHANGELOG / version tag afterward.
+
 ### Task 5.1: Cross-platform notifier
 
 **Files:**
@@ -3050,6 +3052,8 @@ git commit -m "feat(plugin): pal-cancel for killing in-flight runs"
 
 ## Phase 6: `/pal-revise` skill
 
+**Sequencing note (2026-04-19):** Execute Phase 8 before Phase 6 (see note at Phase 5 heading). Phase 6 assumes Phase 5's async infrastructure exists and the container pipeline has been exercised end-to-end in Phase 8.
+
 ### Task 6.1: `/pal-revise` skill markdown
 
 **Files:**
@@ -3393,149 +3397,195 @@ git commit -m "feat(skills): validate NTFS ACL on config.env (Windows)"
 
 ---
 
-## Phase 8: Documentation and release
+## Phase 8: Documentation and release — **NEXT TO EXECUTE**
+
+**Sequencing note (2026-04-19):** Running Phase 8 before Phases 5 and 6 per user decision. This phase locks in the install/setup story and validates it via a real end-to-end dispatch. When Phase 8 is complete, return to Phase 5 (async + status/logs/cancel) and then Phase 6 (revise). A Phase 8-refresh pass after 5/6 will extend install.md and CHANGELOG with the new surface area.
+
+**Feature set assumed built (pre-Phase 5/6):**
+- Skills: `/claude-pal:pal-plan`, `/claude-pal:pal-implement` (sync only)
+- Commands: `/claude-pal:pal-brainstorm` (depends on `superpowers` plugin), `/claude-pal:pal-setup`
+- Container pipeline: adversarial review → TDD implement → post-impl review → PR
+- Auth: env-passthrough only (no on-disk secrets file — see Task 4.6)
+
+**Not yet built (do NOT reference in Phase 8 docs):**
+- Async mode, `/pal-status`, `/pal-logs`, `/pal-cancel`, `/pal-revise` — land in Phases 5 and 6
+- OS-native credential stores (macOS Keychain, Windows Credential Manager, Linux `pass`) — Phase 7 deferred
 
 ### Task 8.1: Install guide
 
 **Files:**
 - Create: `~/repos/claude-pal/docs/install.md`
 
-- [ ] **Step 1: Write docs/install.md**
+Install guide must be written against the actually-built feature set (see Phase 8 heading). Env-passthrough auth only; no `config.env` file; no async/revise/status/logs/cancel skills. Those land in Phase 5/6 and a later Phase 8-refresh.
+
+- [ ] **Step 1: Write `docs/install.md`**
 
 ```markdown
 # Installing claude-pal
 
+claude-pal is a Claude Code plugin that launches a Docker container to run the `claude` CLI non-interactively against GitHub issues. Everything runs on your host — no cloud service component.
+
 ## Prerequisites
 
-- **Docker** 20+ (Docker Desktop on macOS/Windows; Docker Engine on Linux)
-- **Claude Code CLI** installed on your host
-- **Git** and `gh` (GitHub CLI) — typically already installed if you're running Claude Code
-- **Full-disk encryption** enabled on the host (LUKS / FileVault / BitLocker) — documented prerequisite, not enforced
+- **Docker** 20+ (Docker Desktop on macOS/Windows; Docker Engine on Linux). `docker info` must succeed from your shell.
+- **Claude Code CLI** installed on your host and logged in interactively at least once (`claude` in a terminal).
+- **Git** and **`gh`** (GitHub CLI) installed.
+- **Full-disk encryption** enabled on the host (LUKS / FileVault / BitLocker) — documented prerequisite, not enforced by claude-pal.
+- **A Claude Pro / Max / Team / Enterprise subscription** (for OAuth) OR an **Anthropic Console API key**.
 
 ### Windows additional prerequisites
 
-- **Git for Windows** (provides Git Bash which Claude Code requires)
+- **Git for Windows** (provides Git Bash, which Claude Code requires).
 - If both WSL and Git Bash are installed, set `CLAUDE_CODE_GIT_BASH_PATH` in `~/.claude/settings.json`:
   ```json
   { "env": { "CLAUDE_CODE_GIT_BASH_PATH": "C:\\Program Files\\Git\\bin\\bash.exe" } }
   ```
-- Optional for async notifications: `Install-Module BurntToast` in PowerShell
 
 ## Install steps
 
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/<owner>/claude-pal.git ~/repos/claude-pal
+git clone https://github.com/jnurre64/claude-pal.git ~/repos/claude-pal
 cd ~/repos/claude-pal
 ```
 
-### 2. Build the image
+### 2. Build the container image
 
 ```bash
 ./scripts/build-image.sh
+# → builds claude-pal:latest on your local Docker daemon
+```
+
+Verify:
+
+```bash
+docker images claude-pal
 ```
 
 ### 3. Generate credentials
 
-**Claude authentication** (use ONE of):
-- Subscription OAuth (recommended for personal use):
+**Claude authentication** — pick exactly ONE of these:
+
+- **Subscription OAuth** (common for personal use):
   ```bash
   claude setup-token
-  # copy the printed token (begins sk-ant-oat01-)
+  # opens a browser, prints a token that begins sk-ant-oat01-
+  # valid ~1 year
   ```
-- Console API key (from https://console.anthropic.com)
+- **Console API key** (for commercial / multi-user / pay-as-you-go scenarios): create one at https://console.anthropic.com/settings/keys — begins `sk-ant-api03-`.
 
-**GitHub token:** create a fine-grained PAT at https://github.com/settings/personal-access-tokens. Needed scopes per repo: contents (read/write), issues (read/write), pull_requests (read/write), metadata (read).
+**GitHub token:** create a fine-grained PAT at https://github.com/settings/personal-access-tokens. Grant repository access for each repo you plan to dispatch against, with these scopes:
 
-### 4. Write config.env
+- Contents: read and write
+- Pull requests: read and write
+- Issues: read and write
+- Metadata: read
 
-Linux/macOS:
+### 4. Export credentials in your shell profile
+
+claude-pal reads credentials from the process environment at dispatch time — there is no `config.env` file managed by the plugin. This matches Anthropic's documented [`claude-code-action`](https://github.com/anthropics/claude-code-action) pattern.
+
+**Linux / macOS (bash):**
 ```bash
-mkdir -p ~/.config/claude-pal
-cat > ~/.config/claude-pal/config.env <<EOF
-CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...
-GH_TOKEN=github_pat_...
+cat >> ~/.bashrc <<'EOF'
+
+# claude-pal
+export CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...paste-token-here...
+export GH_TOKEN=github_pat_...paste-PAT-here...
 EOF
-chmod 600 ~/.config/claude-pal/config.env
+source ~/.bashrc
 ```
 
-Windows (PowerShell):
+Same for `~/.zshrc` (zsh). Use `set -x CLAUDE_CODE_OAUTH_TOKEN ...` syntax for fish in `~/.config/fish/config.fish`.
+
+**Windows (PowerShell, persistent for the current user):**
 ```powershell
-New-Item -Path "$env:LOCALAPPDATA\claude-pal" -ItemType Directory -Force
-@"
-CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...
-GH_TOKEN=github_pat_...
-"@ | Out-File "$env:LOCALAPPDATA\claude-pal\config.env" -Encoding ASCII
-icacls "$env:LOCALAPPDATA\claude-pal\config.env" /inheritance:r /grant:r "${env:USERNAME}:F"
+[System.Environment]::SetEnvironmentVariable('CLAUDE_CODE_OAUTH_TOKEN', 'sk-ant-oat01-...', 'User')
+[System.Environment]::SetEnvironmentVariable('GH_TOKEN', 'github_pat_...', 'User')
+# Open a new PowerShell / Git Bash to pick up the new env
 ```
 
-### 5. Install as a Claude Code plugin
+If you prefer an API key, substitute `CLAUDE_CODE_OAUTH_TOKEN` with `ANTHROPIC_API_KEY`. **Set exactly one of the two** — setting both is an error (preflight will reject it).
 
-`claude-pal` is a Claude Code plugin (manifest at `.claude-plugin/plugin.json`, shared libs at plugin-root `lib/`, skills under `skills/pal-*/`). It must be loaded AS a plugin for `${CLAUDE_PLUGIN_ROOT}` to be populated — do **not** copy `skills/pal-*` into `~/.claude/skills/` manually; the `lib/` sourcing will fail.
+Alternative: once claude-pal is loaded as a plugin (step 5), run `/claude-pal:pal-setup` for a guided walkthrough.
 
-**For end users (persistent install from a marketplace):**
+### 5. Load claude-pal as a Claude Code plugin
 
-```
-claude plugin install claude-pal@<marketplace-name>
-```
+claude-pal is a Claude Code plugin (manifest at `.claude-plugin/plugin.json`, shared libs at plugin-root `lib/`, skills under `skills/pal-*/SKILL.md`, commands under `commands/*.md`). It must be loaded *as a plugin* so `${CLAUDE_PLUGIN_ROOT}` is populated — do NOT copy `skills/pal-*` into `~/.claude/skills/`; the `lib/` sourcing inside each SKILL.md will fail.
 
-This requires the plugin to be published to a marketplace (out of scope for v1; see "For developers" below for now).
-
-**For developers / local-only use:**
+**Developer / local-only (recommended today):**
 
 ```bash
-# Validate the manifest
+# Validate the manifest (fast, no session needed)
 claude plugin validate ~/repos/claude-pal
+# → "✔ Validation passed"
 
-# Load for one session at a time (no global install state, cleanest dev loop)
+# Load for one session at a time
 claude --plugin-dir ~/repos/claude-pal
 ```
 
-`--plugin-dir` is repeatable and scoped to the single `claude` session. Inside that session, `/skills` lists the `pal-*` skills and `${CLAUDE_PLUGIN_ROOT}` resolves to the checkout path. This is also the mode used during Phase 3–6 dev of this plan.
+`--plugin-dir` is scoped to the one `claude` session. Inside that session, `/plugin` lists `claude-pal` and `/skills` lists `pal-implement` and `pal-plan`. Persistent / marketplace install is out of scope for v0.x.
 
 ### 6. Verify
 
-```bash
-/plugin         # should show claude-pal as installed
-/skills         # should list pal-plan, pal-implement, pal-revise, pal-status, pal-logs, pal-cancel
-docker info     # should succeed
-echo $ANTHROPIC_API_KEY  # should be empty — unset it if set
+Inside a `claude --plugin-dir ~/repos/claude-pal` session:
+
+```
+/plugin          # should show claude-pal as loaded
+/skills          # should list pal-plan and pal-implement
 ```
 
-## Credential hardening (optional)
-
-### macOS: use Keychain
+From the host shell:
 
 ```bash
-security add-generic-password -a "$USER" -s claude-pal-oauth -w "sk-ant-oat01-..." -U
-# claude-pal auto-detects this; the token in config.env becomes optional
+docker info                           # should succeed
+[ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] || [ -n "$ANTHROPIC_API_KEY" ] && echo "claude cred: ok"
+[ -n "$GH_TOKEN" ] && echo "gh cred: ok"
+GH_TOKEN="$GH_TOKEN" gh auth status   # should succeed
 ```
 
-### Windows: use Credential Manager
+### 7. First live dispatch (validate end-to-end)
 
-```powershell
-Install-Module CredentialManager  # one-time
-New-StoredCredential -Target "claude-pal-oauth" -UserName "$env:USERNAME" -Password (ConvertTo-SecureString -String "sk-ant-oat01-..." -AsPlainText -Force) -Persist LocalMachine
+```
+# Inside the claude --plugin-dir session, from a checkout of a GitHub repo the PAT can access:
+/claude-pal:pal-plan
+# → publishes the most recent docs/superpowers/plans/*.md file as a new issue
+# → prints the issue URL
+
+/claude-pal:pal-implement <the-issue-number>
+# → runs preflight checks
+# → launches the container (adversarial review → TDD → post-impl review → PR)
+# → prints the PR URL on success
 ```
 
-### Linux: use `pass`
-
-```bash
-pass insert claude-pal/oauth
-# Then in config.env:
-PAL_CRED_SOURCE=pass:claude-pal/oauth
-# CLAUDE_CODE_OAUTH_TOKEN can be omitted from config.env
-```
+Watch for errors at each stage. Common failures are covered below.
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| "ANTHROPIC_API_KEY is set" | env var set in shell | `unset ANTHROPIC_API_KEY` |
-| "config file has permissions X, expected 600" | 0644 or similar | `chmod 600 <path>` |
-| "Claude Code is using WSL's bash, not Git Bash" (Windows) | WSL precedence | Set `CLAUDE_CODE_GIT_BASH_PATH` in Claude settings.json |
-| Container network failures | Allowlist too narrow | Extend `PAL_ALLOWLIST_EXTRA_DOMAINS` in per-repo `.pal/config.env` |
+| `pal: missing required environment variable(s): ...` | Token not exported in current shell | Re-read step 4; open a new shell after editing your profile |
+| `pal: ERROR — both CLAUDE_CODE_OAUTH_TOKEN and ANTHROPIC_API_KEY are set` | Both auth env vars set | Unset whichever you don't want: `unset ANTHROPIC_API_KEY` (or vice-versa) |
+| `docker daemon not reachable` | Docker not running / wrong `DOCKER_HOST` | Start Docker Desktop / `sudo systemctl start docker`; check `echo $DOCKER_HOST` |
+| `Claude Code is using WSL's bash, not Git Bash` (Windows) | WSL precedence in Claude Code settings | Set `CLAUDE_CODE_GIT_BASH_PATH` in `~/.claude/settings.json` (see Prerequisites) |
+| `gh auth status` fails | Expired PAT or missing scopes | Re-issue the PAT per step 3 |
+| Container network failures | Firewall allowlist too narrow for a private registry | Add entries to `PAL_ALLOWLIST_EXTRA_DOMAINS` in the target repo's `.pal/config.env` |
+| `/claude-pal:pal-brainstorm` stops with "install superpowers" | `superpowers` plugin not loaded in the session | `claude --plugin-dir ~/repos/claude-pal --plugin-dir <path-to-superpowers>` — or skip `pal-brainstorm` and use `/claude-pal:pal-plan` directly on a plan you already have |
+
+## Terms of Service
+
+Claude subscription OAuth tokens (`sk-ant-oat01-*`) are for personal use only per Anthropic's Consumer Terms of Service (Feb 2026 update). Do **not** redistribute your token, commit it to a repo, or deploy claude-pal as a shared service for others using someone else's subscription. For commercial or multi-user scenarios, use an `ANTHROPIC_API_KEY` from the Console instead.
+
+See: https://www.anthropic.com/legal/usage-policy
+
+## What's not in this release
+
+v0.4.0 ships the core flow (plan → implement → PR) in sync mode. Planned for later releases:
+
+- Async mode + `/claude-pal:pal-status`, `/claude-pal:pal-logs`, `/claude-pal:pal-cancel` (Phase 5)
+- `/claude-pal:pal-revise` for PR-review follow-ups (Phase 6)
+- OS-native credential stores — macOS Keychain, Windows Credential Manager, Linux `pass` (Phase 7 — deferred)
 ```
 
 - [ ] **Step 2: Commit**
@@ -3543,51 +3593,36 @@ PAL_CRED_SOURCE=pass:claude-pal/oauth
 ```bash
 cd ~/repos/claude-pal
 git add docs/install.md
-git commit -m "docs: install guide for all three platforms"
+git commit -m "docs: install guide for v0.4 (env-passthrough, sync-only)"
 ```
 
-### Task 8.2: Config examples
+- [ ] **Step 3: Live validation** (the point of running Phase 8 now)
+
+Open a fresh terminal and follow `docs/install.md` end-to-end against `Frightful-Games/recipe-manager-demo` using the pennyworth-bot PAT. The acceptance criteria:
+
+1. Steps 1–6 produce no ambiguity or missing info.
+2. `/claude-pal:pal-plan` publishes a plan file as a GitHub issue comment.
+3. `/claude-pal:pal-implement <#>` runs the container, goes through the gated pipeline, and opens a PR on `Frightful-Games/recipe-manager-demo`.
+4. Any rough edges get fixed in `docs/install.md` and re-validated.
+
+Do NOT mark Task 8.1 complete until the live round-trip succeeds.
+
+### Task 8.2: Per-repo config example
+
+Under the env-passthrough redesign (Task 4.6), there is no plugin-level `config.env` file — credentials are env vars in the user's shell profile. Only the per-repo non-secret config file remains, and an example of it belongs in the repo.
 
 **Files:**
-- Create: `~/repos/claude-pal/config.env.example`
 - Create: `~/repos/claude-pal/.pal/config.env.example`
 
-- [ ] **Step 1: Write config.env.example**
-
-```bash
-cat > ~/repos/claude-pal/config.env.example <<'EOF'
-# claude-pal host config — copy to $XDG_CONFIG_HOME/claude-pal/config.env or %LOCALAPPDATA%\claude-pal\config.env
-
-# Claude authentication (exactly one required)
-CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-REPLACE_ME
-# or use ANTHROPIC_API_KEY=sk-ant-api-...
-
-# GitHub authentication (personal or bot PAT)
-GH_TOKEN=github_pat_REPLACE_ME
-
-# Optional: disable desktop notifications
-# PAL_NOTIFY=false
-
-# Optional: override notification command
-# PAL_NOTIFY_COMMAND_OVERRIDE=/path/to/notifier.sh
-
-# Optional: default backend
-# PAL_BACKEND=docker-linux  # docker-linux | docker-windows | sbx-linux
-
-# Optional: remote Docker daemon
-# DOCKER_HOST=ssh://user@strongbad.local
-
-# Optional: load OAuth from 'pass' (Linux hardening; requires 'pass' installed)
-# PAL_CRED_SOURCE=pass:claude-pal/oauth
-EOF
-```
-
-- [ ] **Step 2: Write `.pal/config.env.example`**
+- [ ] **Step 1: Write `.pal/config.env.example`**
 
 ```bash
 mkdir -p ~/repos/claude-pal/.pal
 cat > ~/repos/claude-pal/.pal/config.env.example <<'EOF'
-# Per-repo claude-pal config — copy to .pal/config.env in your project
+# Per-repo claude-pal config — non-secret only.
+# Copy to <your-project>/.pal/config.env and commit to your project repo.
+# Credentials (CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_API_KEY, GH_TOKEN) live in
+# your shell profile, NOT here — see docs/install.md in the claude-pal repo.
 
 # Test commands
 # AGENT_TEST_COMMAND=bun test
@@ -3608,18 +3643,17 @@ cat > ~/repos/claude-pal/.pal/config.env.example <<'EOF'
 # Allowlist extensions for private registries
 # PAL_ALLOWLIST_EXTRA_DOMAINS=private.registry.example.com,artifactory.internal
 
-# Per-repo backend override (e.g. for .NET Framework MVC)
-# PAL_BACKEND=docker-windows
+# Remote Docker daemon
 # DOCKER_HOST=ssh://user@windows-box
 EOF
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: Commit**
 
 ```bash
 cd ~/repos/claude-pal
-git add config.env.example .pal/config.env.example
-git commit -m "docs: add config examples"
+git add .pal/config.env.example
+git commit -m "docs: add per-repo .pal/config.env example (non-secret)"
 ```
 
 ### Task 8.3: Upstream drift check script
@@ -3683,109 +3717,108 @@ git add scripts/diff-upstream.sh
 git commit -m "scripts: diff-upstream.sh for tracking vendored file drift"
 ```
 
-### Task 8.4: README expansion
+### Task 8.4: README cross-check
+
+The README was already expanded in Task 4.6 with the auth section, ToS note, plugin entry points, and a pointer to `docs/superpowers/specs/...` for design. This task verifies `README.md` and `docs/install.md` agree (no drift) and adds two missing sections identified during the Phase 8 write-up.
 
 **Files:**
 - Modify: `~/repos/claude-pal/README.md`
 
-- [ ] **Step 1: Rewrite README.md**
+- [ ] **Step 1: Diff README vs install guide, fix any drift**
+
+Compare the auth section in `README.md` to the "Export credentials in your shell profile" section in `docs/install.md`. They must agree on: env var names, shell profile file conventions, OAuth-vs-API-key wording, ToS note. If they disagree, update README to match the install guide.
+
+- [ ] **Step 2: Add "What it does" and "Getting started" sections to README**
+
+Append (above the existing "Authentication" section):
 
 ```markdown
-# claude-pal
-
-Local agent dispatch via Claude Code skills — ships ephemeral Docker containers against GitHub issues with a gated plan → implement → review pipeline.
-
-**Status:** v1.0 — working on Linux, macOS, and Windows hosts with Linux containers. Windows-container backend (for .NET Framework MVC) is v2.
-
 ## What it does
 
-1. You brainstorm and plan a feature in a Claude Code CLI session (ideally via `superpowers:brainstorming` + `superpowers:writing-plans`).
-2. You run `/pal-plan [issue#]` to post the plan to a GitHub issue with an `<!-- agent-plan -->` marker.
-3. You run `/pal-implement <issue#>` to launch an ephemeral Docker container that:
-   - Runs an **adversarial plan review** (fresh Claude session, read-only tools, verifies the plan matches the issue)
-   - Implements the plan using **TDD with a retry loop** that feeds failing test output back to the model
-   - Runs a **post-implementation review** (fresh session, read-only, checks the diff for scope creep, test quality, and alignment with the issue)
+1. You brainstorm and write an implementation plan (ideally via `superpowers:brainstorming` + `superpowers:writing-plans`).
+2. You run `/claude-pal:pal-plan` to post that plan to a GitHub issue with an `<!-- agent-plan -->` marker.
+3. You run `/claude-pal:pal-implement <issue#>` to launch an ephemeral Docker container that:
+   - Runs an **adversarial plan review** (fresh Claude session, read-only, verifies the plan matches the issue)
+   - Implements the plan using **TDD with a retry loop** that feeds failing tests back to the model
+   - Runs a **post-implementation review** (fresh session, read-only, checks the diff for scope creep / test quality)
    - Retries once if the post-review finds concerns
-   - Opens a PR with `Closes #N`
-4. When a reviewer requests changes on the PR, you run `/pal-revise <pr#>` to address them.
+   - Pushes the branch and opens a PR
 
 Runs are ephemeral. Credentials never enter the image — only the running container's env for the duration of one run.
 
-## Architecture
-
-See `docs/superpowers/specs/2026-04-18-claude-pal-design.md` for the full design doc.
-
-- Host side: Claude Code skills (`/pal-plan`, `/pal-implement`, `/pal-revise`, `/pal-status`, `/pal-logs`, `/pal-cancel`). Bash on Linux/macOS, Git Bash on Windows.
-- Container: Ubuntu 24.04 base + claude CLI + gh + jq + git + iptables. Runs a gated pipeline via a bash entrypoint.
-- Credentials: `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` (subscription-backed), passed as env var. GitHub via fine-grained PAT. Optional macOS Keychain / Windows Credential Manager / Linux `pass` integration.
-
-## Relationship to `claude-agent-dispatch`
-
-Sibling project. `claude-agent-dispatch` runs the same pipeline shape on self-hosted GitHub Actions runners for team/shared use. claude-pal is personal, local, and triggered from Claude Code skills rather than GitHub labels. claude-pal vendors the review-gate prompts and orchestration library from upstream — see `UPSTREAM.md`.
-
 ## Getting started
 
-See `docs/install.md`.
+See [`docs/install.md`](docs/install.md).
 
-## Terms of Service
+## Relationship to `claude-pal-action`
 
-claude-pal is personal, individual-use infrastructure under Anthropic's subscription-OAuth guidance. See the design doc §3 for the ToS framing and `docs/install.md` for credential handling.
-
-## License
-
-MIT. See `LICENSE`.
+Sibling project. `claude-pal-action` (formerly `claude-agent-dispatch`) runs the same pipeline shape on self-hosted GitHub Actions runners for team / shared use. claude-pal is personal, local, and triggered from a Claude Code session rather than GitHub labels. claude-pal vendors the review-gate prompts and orchestration library from upstream — see `UPSTREAM.md`.
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
 cd ~/repos/claude-pal
 git add README.md
-git commit -m "docs(readme): expand to full project overview"
+git commit -m "docs(readme): add 'What it does' and 'Getting started' sections"
 ```
 
-### Task 8.5: CHANGELOG and version tag
+### Task 8.5: CHANGELOG and v0.4.0 tag
+
+Ships the partial release milestone: core flow (plan → sync implement → PR) with install guide and live-validated end-to-end. v1.0.0 lands after Phases 5 + 6 + Phase 8-refresh.
 
 **Files:**
 - Create: `~/repos/claude-pal/CHANGELOG.md`
+- Update: `~/repos/claude-pal/.claude-plugin/plugin.json` — bump `version` from `0.1.0` to `0.4.0`
 
 - [ ] **Step 1: Write CHANGELOG**
 
 ```markdown
 # Changelog
 
-## [1.0.0] — 2026-04-??
+## [0.4.0] — 2026-04-XX
 
-Initial release.
+First dogfood-ready release. Ships the core flow from an ideation session to an opened PR.
 
 ### Added
-- Six skills: `/pal-plan`, `/pal-implement`, `/pal-revise`, `/pal-status`, `/pal-logs`, `/pal-cancel`
-- Ubuntu-based Docker image with claude CLI, gh, jq, git, iptables allowlist
-- Gated pipeline: adversarial plan review → TDD implement → post-impl review → retry → PR
-- Sync and async run modes, cross-platform desktop notifier
-- Run registry with status reconciliation
-- Preflight checks (auth, permissions, Docker, Windows bash)
-- Per-repo config (`.pal/config.env`)
-- macOS Keychain, Windows Credential Manager, Linux `pass` credential-store auto-detection
-- Vendored review-gate library from `jnurre64/claude-agent-dispatch`
+- **Plugin packaging** — `.claude-plugin/plugin.json`, shared libs at plugin-root `lib/`, skills under `skills/`, commands under `commands/`. Loads via `claude --plugin-dir`.
+- **Skills:** `/claude-pal:pal-plan`, `/claude-pal:pal-implement` (sync mode)
+- **Commands:** `/claude-pal:pal-brainstorm` (orchestrator for the full flow; depends on the `superpowers` plugin), `/claude-pal:pal-setup` (guided credential walkthrough)
+- **Container pipeline:** adversarial plan review → TDD implement with retry loop → post-impl review → retry once on concerns → push branch + open PR
+- **Auth: env-passthrough only** — reads `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) + `GH_TOKEN` from the process env, forwards to container at `docker run -e`. No on-disk secrets file. Matches Anthropic's `claude-code-action` pattern.
+- **Preflight checks** — auth present, single auth method, Docker reachable, Windows bash, `gh auth status`, no-double-dispatch lock
+- **Per-repo config** — `.pal/config.env` for non-secret project knobs (test commands, model overrides, allowlist extensions)
+- **Vendored review-gate library** — prompts + `review-gates.sh` from `jnurre64/claude-pal-action` (formerly `claude-agent-dispatch`); see `UPSTREAM.md`
 
 ### Documentation
-- Full design document (`docs/superpowers/specs/2026-04-18-claude-pal-design.md`)
-- Implementation plan (`docs/superpowers/plans/2026-04-18-claude-pal.md`)
-- Install guide (`docs/install.md`)
-- `UPSTREAM.md` tracking vendored files
+- `docs/install.md` — install guide
+- `README.md` — project overview + auth + ToS
+- `docs/superpowers/specs/2026-04-18-claude-pal-design.md` — full design
+- `docs/superpowers/plans/2026-04-18-claude-pal.md` — implementation plan
+- `UPSTREAM.md` — vendored-file tracking
+
+### Not in 0.4.0 (planned for 0.5 / 0.6)
+- Async mode, `/pal-status`, `/pal-logs`, `/pal-cancel` (Phase 5)
+- `/pal-revise` for PR-review follow-ups (Phase 6)
+- OS-native credential stores — macOS Keychain, Windows Credential Manager, Linux `pass` (Phase 7, deferred)
 ```
 
-- [ ] **Step 2: Tag v1.0.0**
+- [ ] **Step 2: Bump plugin version**
+
+Update `.claude-plugin/plugin.json` `version` field from `"0.1.0"` to `"0.4.0"`. Revalidate the manifest: `claude plugin validate ~/repos/claude-pal`.
+
+- [ ] **Step 3: Tag v0.4.0**
 
 ```bash
 cd ~/repos/claude-pal
-git add CHANGELOG.md
-git commit -m "docs: CHANGELOG for v1.0.0"
-git tag -a v1.0.0 -m "v1.0.0 initial release"
+git add CHANGELOG.md .claude-plugin/plugin.json
+git commit -m "chore: CHANGELOG and bump version to 0.4.0"
+git tag -a v0.4.0 -m "v0.4.0 — core flow: plan → sync implement → PR"
 ```
 
-**Milestone (v1.0.0):** Full `claude-pal` v1 complete with docs, config examples, platform hardening, and a tagged release.
+Do NOT push the tag unless you have a published remote; local-only is fine for this release.
+
+**Milestone (v0.4.0):** Install guide is accurate, live round-trip on `Frightful-Games/recipe-manager-demo` produced a PR, CHANGELOG published, version tagged. Phases 5 + 6 can now layer on a validated foundation.
 
 ---
 
