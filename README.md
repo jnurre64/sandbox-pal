@@ -9,6 +9,8 @@
 
 Local agent dispatch via a Claude Code plugin. Ships fresh Claude Code containers against GitHub issues with a gated plan → implement → review pipeline.
 
+> **Independent, community-built project.** Not affiliated with, endorsed by, or sponsored by Anthropic, PBC. "Claude" and "Claude Code" are trademarks of Anthropic; this project uses Claude Code as its underlying agent and references these trademarks solely to describe that functionality.
+
 See `docs/superpowers/specs/2026-04-18-claude-pal-design.md` for the design document.
 
 **Status:** early development, v0.x. Not yet usable.
@@ -91,7 +93,3 @@ To report a security issue, see [`SECURITY.md`](SECURITY.md).
 ## License
 
 claude-pal is released under the [MIT License](LICENSE).
-
-## Disclaimer
-
-Independent, community-built project. Not affiliated with, endorsed by, or sponsored by Anthropic, PBC. "Claude" and "Claude Code" are trademarks of Anthropic; this project uses Claude Code as its underlying agent and references these trademarks solely to describe that functionality.
