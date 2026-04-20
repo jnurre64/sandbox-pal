@@ -1,5 +1,8 @@
 # claude-pal
 
+[![CI](https://github.com/jnurre64/claude-pal/actions/workflows/ci.yml/badge.svg)](https://github.com/jnurre64/claude-pal/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Local agent dispatch via a Claude Code plugin. Ships fresh Claude Code containers against GitHub issues with a gated plan → implement → review pipeline.
 
 See `docs/superpowers/specs/2026-04-18-claude-pal-design.md` for the design document.
@@ -74,3 +77,13 @@ Optional per-repository settings live in `<your-project>/.pal/config.env`. These
 - `/claude-pal:pal-setup` — guided credential setup (interactive)
 
 Claude's natural-language skill selector also picks these up from plain-English prompts ("have pal build this", "publish this plan"), though explicit slash invocation is always available as a backup.
+
+## Contributing
+
+Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the workflow, commit style, and test requirements. By participating you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+To report a security issue, see [`SECURITY.md`](SECURITY.md).
+
+## License
+
+claude-pal is released under the [MIT License](LICENSE).
