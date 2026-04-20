@@ -1,5 +1,9 @@
 # claude-pal
 
+<p align="center">
+  <img src=".github/icon.png" width="600" alt="claude-pal">
+</p>
+
 [![CI](https://github.com/jnurre64/claude-pal/actions/workflows/ci.yml/badge.svg)](https://github.com/jnurre64/claude-pal/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
