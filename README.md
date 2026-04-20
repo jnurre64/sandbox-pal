@@ -1,5 +1,3 @@
-# claude-pal
-
 <p align="center">
   <img src=".github/icon.png" width="600" alt="claude-pal">
 </p>
