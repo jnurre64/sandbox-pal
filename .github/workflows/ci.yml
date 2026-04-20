@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install bats
-        run: sudo apt-get update && sudo apt-get install -y bats
+        with:
+          submodules: recursive
       - name: Run bats tests
-        run: bats tests/
+        run: ./tests/bats/bin/bats tests/

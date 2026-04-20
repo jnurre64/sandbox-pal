@@ -37,7 +37,8 @@ log() {
 
 # ─── status.json writer (atomic) ─────────────────────────────────
 write_status() {
-    local completed_at="${1:-$(date -u +%FT%TZ)}"
+    local completed_at
+    completed_at="$(date -u +%FT%TZ)"
     cat > "$STATUS_DIR/status.json.tmp" <<EOF
 {
   "phase": "$STATUS_PHASE",
