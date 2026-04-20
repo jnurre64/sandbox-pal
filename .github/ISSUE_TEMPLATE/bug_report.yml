@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a problem with claude-pal
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, reliable steps to reproduce the issue.
+      placeholder: |
+        1. Run `/claude-pal:pal-implement 42`
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Ubuntu 24.04 / macOS 14 / ...
+    validations:
+      required: true
+  - type: input
+    id: docker-version
+    attributes:
+      label: Docker version
+      placeholder: "`docker --version` output"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Output from `~/.pal/runs/<run-id>/` or the console. Redact any tokens.
+      render: shell

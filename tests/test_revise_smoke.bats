@@ -6,10 +6,6 @@ load 'test_helper/bats-assert/load'
 
 setup() {
     REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME}")/.." && pwd)"
-    : "${PAL_TEST_REPO:?set PAL_TEST_REPO}"
-    : "${PAL_TEST_PR_WITH_REVIEW:?set PAL_TEST_PR_WITH_REVIEW to a PR# with CHANGES_REQUESTED review}"
-    : "${CLAUDE_CODE_OAUTH_TOKEN:?}"
-    : "${GH_TOKEN:?}"
     IMAGE_TAG="claude-pal:test-revise-$RANDOM"
     STATUS_DIR="$(mktemp -d)"
 }
@@ -20,6 +16,10 @@ teardown() {
 }
 
 @test "revise pipeline round-trips on smoketest PR" {
+    [ -n "${PAL_TEST_REPO:-}" ]             || skip "set PAL_TEST_REPO=owner/repo"
+    [ -n "${PAL_TEST_PR_WITH_REVIEW:-}" ]   || skip "set PAL_TEST_PR_WITH_REVIEW to a PR# with CHANGES_REQUESTED review"
+    [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]   || skip "set CLAUDE_CODE_OAUTH_TOKEN"
+    [ -n "${GH_TOKEN:-}" ]                  || skip "set GH_TOKEN"
     "$REPO_ROOT/scripts/build-image.sh" "$IMAGE_TAG" > /dev/null 2>&1
 
     run docker run --rm \

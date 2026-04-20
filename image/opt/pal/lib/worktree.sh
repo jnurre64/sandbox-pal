@@ -30,7 +30,7 @@ setup_worktree() {
         local pr_branch
         pr_branch=$(GH_TOKEN="$GH_TOKEN" gh pr view "$number" --repo "$repo" --json headRefName --jq .headRefName)
         log "worktree: checking out PR branch $pr_branch"
-        (cd "$repo_cache" && git fetch origin "$pr_branch":"$pr_branch" 2>/dev/null || true)
+        (cd "$repo_cache" && git fetch origin "$pr_branch":"$pr_branch" 2>/dev/null) || true
         git -C "$repo_cache" worktree add "$WORKTREE_DIR" "$pr_branch"
         BRANCH_NAME="$pr_branch"
     else
