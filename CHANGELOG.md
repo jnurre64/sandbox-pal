@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.0] — 2026-04-21
+
+### Changed
+- **BREAKING (pre-1.0):** Ephemeral `docker run --rm` + `CLAUDE_CODE_OAUTH_TOKEN` env-passthrough replaced by a long-running workspace container (`claude-pal-workspace`) with in-container `/login`. See `docs/authentication.md`.
+- `lib/config.sh` no longer reads `CLAUDE_CODE_OAUTH_TOKEN` / `ANTHROPIC_API_KEY`. `GH_TOKEN` is the only required host env var.
+- Per-run host → container memory sync (`~/.claude/projects/<slug>/memory/` → workspace). Markdown only; `*.jsonl` excluded by default (secret-tier).
+- Container-scoped `CLAUDE.md` via `~/.config/claude-pal/container-CLAUDE.md`; synced per run.
+- New optional knobs: `PAL_CPUS`, `PAL_MEMORY`, `PAL_SYNC_MEMORIES`, `PAL_SYNC_TRANSCRIPTS`.
+
+### Added
+- `/pal-workspace` (start | stop | restart | status | edit-rules).
+- `/pal-login`, `/pal-logout`.
+- `docs/authentication.md`.
+
+### Removed
+- `image/opt/pal/entrypoint.sh` (split into `workspace-boot.sh` + `run-pipeline.sh`).
+- `claude setup-token` is no longer part of setup.
+
+### Testing
+- `tests/test_revise_smoke.bats` converted from a real-image smoke test to a mocked-docker smoke test (matching `test_skill_pal_implement.bats` pattern). Formerly required `PAL_TEST_REPO` / `PAL_TEST_PR_WITH_REVIEW` / `CLAUDE_CODE_OAUTH_TOKEN`.
+
 ## [0.4.0] — 2026-04-19
 
 First dogfood-ready release. Ships the core flow from an ideation session to an opened PR.
