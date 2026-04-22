@@ -23,6 +23,20 @@ case "$1" in
         ;;
     inspect)
         if [ -f "$FAKE_DOCKER_STATE/exists" ]; then
+            # If caller requested just the status field, echo a plain word
+            # rather than the full JSON blob.
+            for arg in "$@"; do
+                case "$arg" in
+                    *State.Status*)
+                        if [ -f "$FAKE_DOCKER_STATE/running" ]; then
+                            echo "running"
+                        else
+                            echo "exited"
+                        fi
+                        exit 0
+                        ;;
+                esac
+            done
             echo '{"State":{"Status":"running"}}'
             exit 0
         fi
@@ -34,7 +48,18 @@ case "$1" in
             exit 1
         fi
         ;;
-    run|start|stop|rm|cp|volume|pull)
+    run)
+        # Simulate the container now existing and running.
+        : > "$FAKE_DOCKER_STATE/exists"
+        : > "$FAKE_DOCKER_STATE/running"
+        ;;
+    start)
+        : > "$FAKE_DOCKER_STATE/running"
+        ;;
+    stop)
+        rm -f "$FAKE_DOCKER_STATE/running"
+        ;;
+    rm|cp|volume|pull)
         : # success
         ;;
     *)

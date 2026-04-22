@@ -37,3 +37,44 @@ pal_workspace_start() {
 
     docker "${args[@]}" >/dev/null
 }
+
+pal_workspace_stop() {
+    if _pal_workspace_is_running; then
+        docker stop "$PAL_WORKSPACE_NAME" >/dev/null
+    fi
+}
+
+pal_workspace_restart() {
+    pal_workspace_stop
+    pal_workspace_start
+}
+
+pal_workspace_ensure_running() {
+    if _pal_workspace_is_running; then
+        return 0
+    fi
+    echo "pal: workspace stopped — starting…" >&2
+    pal_workspace_start
+}
+
+pal_workspace_is_authenticated() {
+    docker exec "$PAL_WORKSPACE_NAME" \
+        test -f /home/agent/.claude/.credentials.json
+}
+
+pal_workspace_status() {
+    if ! _pal_workspace_exists; then
+        echo "workspace: absent (no container named ${PAL_WORKSPACE_NAME})"
+        return 0
+    fi
+    local state
+    state="$(docker inspect --format '{{.State.Status}}' "$PAL_WORKSPACE_NAME" 2>/dev/null || echo unknown)"
+    echo "workspace: ${PAL_WORKSPACE_NAME} (${state})"
+    if [ "$state" = "running" ]; then
+        if pal_workspace_is_authenticated; then
+            echo "  auth: present"
+        else
+            echo "  auth: missing — run /pal-login"
+        fi
+    fi
+}
