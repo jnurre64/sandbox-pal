@@ -1,5 +1,5 @@
 ---
-description: Use when the user hasn't configured claude-pal yet and wants a guided setup. Walks them through generating a Claude OAuth token via `claude setup-token`, obtaining a fine-grained GitHub PAT, and exporting both in their shell profile so claude-pal can read them at dispatch time. Env-passthrough only — does not write a secrets file. Use when user sees "missing required environment variable" from claude-pal, or asks "how do I set up pal", "configure claude-pal", "set pal tokens", or similar.
+description: Use when the user hasn't configured claude-pal yet and wants a guided setup. Walks them through obtaining a fine-grained GitHub PAT and exporting `GH_TOKEN`, then pulling/starting the long-running workspace container and minting Claude credentials inside it via `/pal-login` (persisted in the `claude-pal-claude` named volume, never on the host). Use when user sees "missing required environment variable" from claude-pal, or asks "how do I set up pal", "configure claude-pal", "set pal tokens", or similar.
 ---
 
 # /claude-pal:pal-setup
