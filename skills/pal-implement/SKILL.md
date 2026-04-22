@@ -1,11 +1,11 @@
 ---
 name: pal-implement
-description: Use when the user wants pal to actually start working on a GitHub issue. Launches an ephemeral Docker container that reads the plan from the issue and runs a gated pipeline (adversarial plan review → TDD implementation → post-impl review → opens PR). Use when user says "have pal implement this", "kick off pal on issue #N", "dispatch pal", "run the pal container on this issue", or similar. Sync by default; pass --async to background.
+description: Use when the user wants pal to actually start working on a GitHub issue. Dispatches a pipeline (adversarial plan review → TDD implementation → post-impl review → opens PR) inside the long-running claude-pal workspace container. Use when user says "have pal implement this", "kick off pal on issue #N", "dispatch pal", "run the pal container on this issue", or similar. Sync by default; pass --async to background.
 ---
 
 # pal-implement
 
-Launch a claude-pal container to implement a GitHub issue's posted plan.
+Dispatch the claude-pal pipeline to implement a GitHub issue's posted plan.
 
 ## Usage
 
@@ -21,17 +21,21 @@ Launch a claude-pal container to implement a GitHub issue's posted plan.
    . "${CLAUDE_PLUGIN_ROOT}/lib/config.sh"
    . "${CLAUDE_PLUGIN_ROOT}/lib/preflight.sh"
    . "${CLAUDE_PLUGIN_ROOT}/lib/runs.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/workspace.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/memory-sync.sh"
+   . "${CLAUDE_PLUGIN_ROOT}/lib/container-rules.sh"
    . "${CLAUDE_PLUGIN_ROOT}/lib/launcher.sh"
    ```
 3. Determine the target repo. If the current working directory is inside a git repo, use its origin remote. Otherwise require `PAL_REPO` env var.
-4. Run `pal_preflight_all "$repo" "$issue_num"`. On failure, exit with the preflight's own error.
-5. Generate a run id: `run_id=$(pal_new_run_id)`.
-6. Write launch meta: `pal_write_launch_meta "$run_id" "$repo" "$issue_num" "implement" "${mode}"` where `mode` is `async` or `sync`.
-7. If `--async` flag given:
-   - `pal_launch_async "$run_id" "$repo" "$issue_num" "implement"`
+4. Derive the host repo path: `HOST_REPO_PATH="$(git -C . rev-parse --show-toplevel)"` (required so memory-sync can locate the host's Auto Memory dir).
+5. Run `pal_preflight_all "$repo" "$issue_num"`. On failure, exit with the preflight's own error.
+6. Generate a run id: `run_id=$(pal_new_run_id)`.
+7. Write launch meta: `pal_write_launch_meta "$run_id" "$repo" "$issue_num" "implement" "${mode}"` where `mode` is `async` or `sync`.
+8. If `--async` flag given:
+   - `pal_launch_async implement "$repo" "$issue_num" "$HOST_REPO_PATH" "$run_id"`
    - Return immediately; skip status summary step.
    Otherwise:
-   - `pal_launch_sync "$run_id" "$repo" "$issue_num" "implement"` (exit code propagates)
+   - `pal_launch_sync implement "$repo" "$issue_num" "$HOST_REPO_PATH" "$run_id"` (exit code propagates)
    - `pal_render_status_summary "$run_id"`
 
 ## Examples
