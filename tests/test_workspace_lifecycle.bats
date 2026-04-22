@@ -56,3 +56,65 @@ teardown() {
     run grep -- "--memory=4g" "$FAKE_DOCKER_LOG"
     assert_success
 }
+
+@test "pal_workspace_stop stops running workspace" {
+    fake_docker_set_running
+    run pal_workspace_stop
+    assert_success
+    run grep "^stop claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    assert_success
+}
+
+@test "pal_workspace_stop is a no-op if not running" {
+    fake_docker_set_stopped
+    run pal_workspace_stop
+    assert_success
+    run grep "^stop " "$FAKE_DOCKER_LOG"
+    assert_failure
+}
+
+@test "pal_workspace_restart stops then starts" {
+    fake_docker_set_running
+    run pal_workspace_restart
+    assert_success
+    run grep "^stop claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    assert_success
+    run grep "^start claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    assert_success
+}
+
+@test "pal_workspace_ensure_running starts stopped workspace and emits log line" {
+    fake_docker_set_stopped
+    run pal_workspace_ensure_running
+    assert_success
+    assert_output --partial "workspace stopped — starting"
+}
+
+@test "pal_workspace_ensure_running is silent when already running" {
+    fake_docker_set_running
+    run pal_workspace_ensure_running
+    assert_success
+    refute_output --partial "workspace stopped"
+}
+
+@test "pal_workspace_is_authenticated returns 0 when credentials exist" {
+    fake_docker_set_running
+    # fake docker defaults to exit 0 for exec
+    run pal_workspace_is_authenticated
+    assert_success
+}
+
+@test "pal_workspace_is_authenticated returns non-zero when credentials missing" {
+    fake_docker_set_running
+    : > "$FAKE_DOCKER_STATE/exec_fails"
+    run pal_workspace_is_authenticated
+    assert_failure
+}
+
+@test "pal_workspace_status prints name, state, and auth summary" {
+    fake_docker_set_running
+    run pal_workspace_status
+    assert_success
+    assert_output --partial "claude-pal-workspace"
+    assert_output --partial "running"
+}
