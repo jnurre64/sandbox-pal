@@ -25,9 +25,20 @@ claude-pal ships as a Claude Code plugin. Shared bash helpers under plugin-root 
 
 ## Authentication model
 
-claude-pal is **env-passthrough only** — credentials (`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, plus `GH_TOKEN`) are read from the process environment and forwarded to the container at `docker run -e ...` time. There is no plugin-managed secrets file on disk. This matches Anthropic's own `anthropics/claude-code-action` pattern, which is the only documented non-interactive `claude` CLI auth mechanism. `lib/config.sh` asserts the env vars exist and prints guidance if missing; it does NOT read or write any file. Users wire up tokens once in their shell profile (`~/.bashrc` / `~/.zshrc`) — `/claude-pal:pal-setup` is the guided walkthrough.
+claude-pal uses a **long-running workspace container** that owns its own Claude
+credentials. `claude /login` is run interactively **inside** the container
+once; the resulting `.credentials.json` persists in a Docker-managed named
+volume (`claude-pal-claude`) and never touches the host filesystem. Every
+`pal-*` invocation `docker exec`s into the workspace.
 
-Per-repo non-secret knobs (`PAL_TEST_CMD`, `AGENT_BASE_BRANCH`, `DOCKER_HOST`) may live in `<project>/.pal/config.env` — these are passed through by the launcher but never credentials.
+The host shell only needs `GH_TOKEN` (or `GITHUB_TOKEN`) — there is **no**
+`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` env-var path. `lib/config.sh`
+asserts `GH_TOKEN` and optionally sources `~/.config/claude-pal/config.env` for
+non-secret knobs (`PAL_CPUS`, `PAL_MEMORY`, `PAL_SYNC_MEMORIES`,
+`PAL_SYNC_TRANSCRIPTS`).
+
+Per-repo non-secret knobs (`PAL_TEST_CMD`, `AGENT_BASE_BRANCH`, `DOCKER_HOST`)
+may still live in `<project>/.pal/config.env`.
 
 ## Development
 
