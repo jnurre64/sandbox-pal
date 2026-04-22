@@ -24,12 +24,23 @@ pal_workspace_start() {
     fi
     docker volume create "$PAL_WORKSPACE_VOLUME" >/dev/null
 
+    # Bind-mount the host runs dir into the container at /status so that
+    # run-pipeline.sh (invoked via `docker exec`) can write per-run
+    # status.json files to /status/<run-id>/ visible on the host.
+    # Requires lib/runs.sh for pal_runs_dir.
+    # shellcheck source=/dev/null
+    . "${CLAUDE_PLUGIN_ROOT}/lib/runs.sh"
+    local runs_dir
+    runs_dir="$(pal_runs_dir)"
+    mkdir -p "$runs_dir"
+
     local -a args=(
         run -d
         --name "$PAL_WORKSPACE_NAME"
         --cap-add NET_ADMIN
         --cap-add NET_RAW
         -v "${PAL_WORKSPACE_VOLUME}:/home/agent/.claude"
+        -v "${runs_dir}:/status"
     )
     [ -n "${PAL_CPUS:-}" ]   && args+=(--cpus="$PAL_CPUS")
     [ -n "${PAL_MEMORY:-}" ] && args+=(--memory="$PAL_MEMORY")

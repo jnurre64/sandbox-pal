@@ -29,6 +29,10 @@ teardown() {
     assert_success
     run grep "cap-add NET_RAW" "$FAKE_DOCKER_LOG"
     assert_success
+    # Host runs-dir must be bind-mounted at /status so run-pipeline.sh (via
+    # docker exec) can write status.json visible to the host.
+    run grep -E -- "-v [^ ]+:/status" "$FAKE_DOCKER_LOG"
+    assert_success
 }
 
 @test "pal_workspace_start is a no-op if already running" {
