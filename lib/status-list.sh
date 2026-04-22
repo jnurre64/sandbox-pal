@@ -16,7 +16,7 @@ pal_list_runs() {
         run_id=$(basename "$rd")
         local meta="$rd/launch_meta.json"
         local status="$rd/status.json"
-        local cid_file="$rd/container_id"
+        local pid_file="$rd/exec_pid"
 
         local repo number
         if [ -f "$meta" ]; then
@@ -30,14 +30,14 @@ pal_list_runs() {
         if [ -f "$status" ]; then
             state="complete"
             outcome=$(jq -r .outcome "$status")
-        elif [ -f "$cid_file" ]; then
-            local cid
-            cid=$(cat "$cid_file")
-            if docker ps --filter "id=$cid" --format '{{.ID}}' 2>/dev/null | grep -q .; then
+        elif [ -f "$pid_file" ]; then
+            local pid
+            pid=$(cat "$pid_file")
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
                 state="running"
                 outcome="-"
             else
-                # Container gone but no status.json — reconcile as stale
+                # Host exec process gone but no status.json — reconcile as stale
                 state="stale"
                 outcome="unknown"
             fi
