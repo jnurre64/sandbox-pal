@@ -105,7 +105,7 @@ trap 'cleanup_on_exit' EXIT
 . "$LIB_DIR/firewall.sh"
 
 # --- Main pipeline ----------------------------------------------
-log "claude-pal run-pipeline"
+log "sandbox-pal run-pipeline"
 log "event=$EVENT_TYPE repo=$REPO number=$NUMBER run_id=$RUN_ID"
 
 # If allowlist extras differ from workspace default, reload firewall.
@@ -285,10 +285,10 @@ if [ "$EVENT_TYPE" = "revise" ]; then
     log "revise: new commits pushed to existing PR #$NUMBER"
 else
     # Create PR
-    local_pr_title="${AGENT_ISSUE_TITLE:-claude-pal implementation}"
+    local_pr_title="${AGENT_ISSUE_TITLE:-sandbox-pal implementation}"
     local_pr_body="Closes #${NUMBER}
 
-Implemented by claude-pal based on the approved plan in issue #${NUMBER}."
+Implemented by sandbox-pal based on the approved plan in issue #${NUMBER}."
 
     pr_create_output=$(gh pr create \
         --repo "$REPO" \

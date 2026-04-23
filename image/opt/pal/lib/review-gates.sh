@@ -126,18 +126,18 @@ ${questions}
 
 Please respond to these questions. Implementation will resume after clarification." 2>/dev/null || true
 
-            # No label state machine in claude-pal; status is written to status.json by run-pipeline.sh
+            # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
             STATUS_OUTCOME="clarification_needed"
             return 1
             ;;
         *)
             log "Adversarial plan review: could not parse response"
             log "Raw output: $claude_output"
-            # No label state machine in claude-pal; status is written to status.json by run-pipeline.sh
+            # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
             STATUS_OUTCOME="failure"
             STATUS_FAILURE_REASON="adversarial_review_could_not_parse"
             gh issue comment "$NUMBER" --repo "$REPO" \
-                --body "Agent adversarial plan review could not parse its output. Please retry the claude-pal run." 2>/dev/null || true
+                --body "Agent adversarial plan review could not parse its output. Please retry the sandbox-pal run." 2>/dev/null || true
             return 1
             ;;
     esac
@@ -185,7 +185,7 @@ run_post_impl_review() {
         *)
             log "Post-implementation review: could not parse response"
             log "Raw output: $claude_output"
-            # No label state machine in claude-pal; status is written to status.json by run-pipeline.sh
+            # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
             STATUS_OUTCOME="failure"
             STATUS_FAILURE_REASON="post_impl_review_could_not_parse"
             gh issue comment "$NUMBER" --repo "$REPO" \
@@ -208,7 +208,7 @@ handle_post_impl_review_retry() {
 
     if [ "${AGENT_POST_IMPL_REVIEW_MAX_RETRIES}" -eq 0 ]; then
         log "Post-impl review retry: disabled (MAX_RETRIES=0)"
-        # No label state machine in claude-pal; status is written to status.json by run-pipeline.sh
+        # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
         STATUS_OUTCOME="failure"
         STATUS_FAILURE_REASON="post_impl_review_concerns_retries_disabled"
         gh issue comment "$NUMBER" --repo "$REPO" --body "## Post-Implementation Review: Concerns Found
@@ -259,7 +259,7 @@ Retries are disabled. Please review the branch manually." 2>/dev/null || true
 
         if [ "$test_exit" -ne 0 ]; then
             log "Post-impl retry: tests failed after retry"
-            # No label state machine in claude-pal; status is written to status.json by run-pipeline.sh
+            # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
             STATUS_OUTCOME="failure"
             STATUS_FAILURE_REASON="post_impl_retry_tests_failed"
             gh issue comment "$NUMBER" --repo "$REPO" \
@@ -287,7 +287,7 @@ $(echo "$test_output" | tail -100)
         return 0
     else
         log "Post-impl retry: review still has concerns after retry"
-        # No label state machine in claude-pal; status is written to status.json by run-pipeline.sh
+        # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
         STATUS_OUTCOME="failure"
         STATUS_FAILURE_REASON="post_impl_retry_concerns_persist"
         gh issue comment "$NUMBER" --repo "$REPO" --body "## Post-Implementation Review: Concerns Persist After Retry

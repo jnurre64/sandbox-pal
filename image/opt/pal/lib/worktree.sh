@@ -40,8 +40,8 @@ setup_worktree() {
     fi
 
     # Configure git identity inside the worktree
-    local bot_name="${AGENT_GIT_USER_NAME:-claude-pal}"
-    local bot_email="${AGENT_GIT_USER_EMAIL:-claude-pal@local}"
+    local bot_name="${AGENT_GIT_USER_NAME:-sandbox-pal}"
+    local bot_email="${AGENT_GIT_USER_EMAIL:-sandbox-pal@local}"
     git -C "$WORKTREE_DIR" config user.name "$bot_name"
     git -C "$WORKTREE_DIR" config user.email "$bot_email"
 

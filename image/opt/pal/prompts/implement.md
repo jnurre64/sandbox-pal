@@ -1,4 +1,4 @@
-You are implementing an approved plan for a GitHub issue in this repository, running inside an ephemeral claude-pal container.
+You are implementing an approved plan for a GitHub issue in this repository, running inside an ephemeral sandbox-pal container.
 
 ## Issue Context
 Read the issue details from environment variables:
