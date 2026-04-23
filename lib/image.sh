@@ -7,3 +7,12 @@
 pal_image_exists() {
     docker image inspect "$PAL_WORKSPACE_IMAGE" >/dev/null 2>&1
 }
+
+pal_image_build() {
+    local base_image="${BASE_IMAGE:-ubuntu:24.04}"
+    docker build \
+        --build-arg BASE_IMAGE="$base_image" \
+        -f "${CLAUDE_PLUGIN_ROOT}/image/Dockerfile" \
+        -t "$PAL_WORKSPACE_IMAGE" \
+        "${CLAUDE_PLUGIN_ROOT}"
+}

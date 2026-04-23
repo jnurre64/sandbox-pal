@@ -34,3 +34,36 @@ teardown() {
     PAL_WORKSPACE_IMAGE=claude-pal:v0.5.0 run pal_image_exists
     assert_success
 }
+
+@test "pal_image_build: invokes docker build with Dockerfile and plugin root as context" {
+    run pal_image_build
+    assert_success
+    run grep -F -- "-f ${CLAUDE_PLUGIN_ROOT}/image/Dockerfile" "$FAKE_DOCKER_LOG"
+    assert_success
+    run grep -F -- "-t claude-pal:latest" "$FAKE_DOCKER_LOG"
+    assert_success
+    # Build context is the plugin root (trailing positional).
+    run grep -F -- "${CLAUDE_PLUGIN_ROOT}" "$FAKE_DOCKER_LOG"
+    assert_success
+}
+
+@test "pal_image_build: passes BASE_IMAGE build-arg (default ubuntu:24.04)" {
+    run pal_image_build
+    assert_success
+    run grep -F -- "--build-arg BASE_IMAGE=ubuntu:24.04" "$FAKE_DOCKER_LOG"
+    assert_success
+}
+
+@test "pal_image_build: respects BASE_IMAGE env override" {
+    BASE_IMAGE=ubuntu:22.04 run pal_image_build
+    assert_success
+    run grep -F -- "--build-arg BASE_IMAGE=ubuntu:22.04" "$FAKE_DOCKER_LOG"
+    assert_success
+}
+
+@test "pal_image_build: respects PAL_WORKSPACE_IMAGE tag override" {
+    PAL_WORKSPACE_IMAGE=claude-pal:v0.5.0 run pal_image_build
+    assert_success
+    run grep -F -- "-t claude-pal:v0.5.0" "$FAKE_DOCKER_LOG"
+    assert_success
+}
