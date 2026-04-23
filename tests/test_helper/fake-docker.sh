@@ -46,7 +46,9 @@ case "$1" in
         # Handle `docker image inspect <tag>` — success only if the tag is
         # marked present via fake_docker_set_image_exists.
         if [ "${2:-}" = "inspect" ] && [ -n "${3:-}" ]; then
-            if [ -f "$FAKE_DOCKER_STATE/image_${3//:/_}" ]; then
+            safe_tag="${3//:/_}"
+            safe_tag="${safe_tag//\//_}"
+            if [ -f "$FAKE_DOCKER_STATE/image_${safe_tag}" ]; then
                 echo '[{"Id":"fake"}]'
                 exit 0
             fi
@@ -108,10 +110,14 @@ fake_docker_set_absent() {
 
 fake_docker_set_image_exists() {
     local tag="${1:-claude-pal:latest}"
-    : > "$FAKE_DOCKER_STATE/image_${tag//:/_}"
+    local safe_tag="${tag//:/_}"
+    safe_tag="${safe_tag//\//_}"
+    : > "$FAKE_DOCKER_STATE/image_${safe_tag}"
 }
 
 fake_docker_set_image_absent() {
     local tag="${1:-claude-pal:latest}"
-    rm -f "$FAKE_DOCKER_STATE/image_${tag//:/_}"
+    local safe_tag="${tag//:/_}"
+    safe_tag="${safe_tag//\//_}"
+    rm -f "$FAKE_DOCKER_STATE/image_${safe_tag}"
 }

@@ -25,3 +25,12 @@ teardown() { fake_docker_teardown; }
     run grep -F "build -t claude-pal:latest" "$FAKE_DOCKER_LOG"
     assert_success
 }
+
+@test "fake docker: 'image inspect' handles slashed registry tags round-trip" {
+    fake_docker_set_image_exists myregistry.io/org/image:latest
+    run docker image inspect myregistry.io/org/image:latest
+    assert_success
+    fake_docker_set_image_absent myregistry.io/org/image:latest
+    run docker image inspect myregistry.io/org/image:latest
+    assert_failure
+}
