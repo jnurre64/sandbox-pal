@@ -1,6 +1,6 @@
 # lib/launcher.sh
 # shellcheck shell=bash
-# Backend adapter: launches the pipeline inside the long-running claude-pal
+# Backend adapter: launches the pipeline inside the long-running sandbox-pal
 # workspace container via `docker exec`. Requires the workspace to be running
 # and authenticated (enforced upstream by preflight). Memory and
 # container-CLAUDE.md are synced before exec.
@@ -138,14 +138,14 @@ pal_launch_async() {
             pr_url=$(jq -r .pr_url "$run_dir/status.json" 2>/dev/null)
             case "$outcome" in
                 success)
-                    pal_notify "claude-pal: $run_id complete" "PR: $pr_url"
+                    pal_notify "sandbox-pal: $run_id complete" "PR: $pr_url"
                     ;;
                 *)
-                    pal_notify "claude-pal: $run_id $outcome" "Check /pal-status $run_id"
+                    pal_notify "sandbox-pal: $run_id $outcome" "Check /pal-status $run_id"
                     ;;
             esac
         else
-            pal_notify "claude-pal: $run_id exited" "No status.json — check /pal-logs $run_id"
+            pal_notify "sandbox-pal: $run_id exited" "No status.json — check /pal-logs $run_id"
         fi
     ) &
 
@@ -236,28 +236,28 @@ pal_render_status_summary() {
 
     case "$outcome" in
         success)
-            printf '✓ claude-pal run %s: success\n' "$run_id"
+            printf '✓ sandbox-pal run %s: success\n' "$run_id"
             printf '  PR opened: %s\n' "$pr_url"
             ;;
         clarification_needed)
-            printf '? claude-pal run %s: clarification needed\n' "$run_id"
+            printf '? sandbox-pal run %s: clarification needed\n' "$run_id"
             printf '  Respond on the issue, then re-run /pal-implement\n'
             ;;
         review_concerns_unresolved)
-            printf '⚠ claude-pal run %s: post-impl review concerns unresolved\n' "$run_id"
+            printf '⚠ sandbox-pal run %s: post-impl review concerns unresolved\n' "$run_id"
             printf '  Review the branch manually. Concerns:\n'
             jq -r '.review_concerns_unresolved[]' "$status_file" | sed 's/^/    - /'
             ;;
         failure)
-            printf '✗ claude-pal run %s: failed at phase %s\n' "$run_id" "$phase"
+            printf '✗ sandbox-pal run %s: failed at phase %s\n' "$run_id" "$phase"
             printf '  Reason: %s\n' "$failure_reason"
             printf '  Log: %s/log\n' "$run_dir"
             ;;
         cancelled)
-            printf '✗ claude-pal run %s: cancelled\n' "$run_id"
+            printf '✗ sandbox-pal run %s: cancelled\n' "$run_id"
             ;;
         *)
-            printf '? claude-pal run %s: unknown outcome "%s"\n' "$run_id" "$outcome"
+            printf '? sandbox-pal run %s: unknown outcome "%s"\n' "$run_id" "$outcome"
             ;;
     esac
 }

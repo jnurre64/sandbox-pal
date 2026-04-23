@@ -16,7 +16,7 @@ pal_publish_plan() {
         local title
         title=$(awk '/^# /{sub(/^# /,""); print; exit}' "$plan_file")
         if [ -z "$title" ]; then
-            title="claude-pal implementation plan ($(date -I))"
+            title="sandbox-pal implementation plan ($(date -I))"
         fi
 
         local problem_summary="<!-- agent-plan -->

@@ -3,7 +3,7 @@
 # Cross-platform desktop notifier.
 
 pal_notify() {
-    local title="${1:-claude-pal}"
+    local title="${1:-sandbox-pal}"
     local message="$2"
 
     # Honor override
