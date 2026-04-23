@@ -48,7 +48,7 @@ teardown() {
     fake_docker_set_running
     run bash "$SKILL_SCRIPT" status
     assert_success
-    assert_output --partial "claude-pal-workspace"
+    assert_output --partial "sandbox-pal-workspace"
     assert_output --partial "running"
 }
 
@@ -56,14 +56,14 @@ teardown() {
     fake_docker_set_running
     run bash "$SKILL_SCRIPT"
     assert_success
-    assert_output --partial "claude-pal-workspace"
+    assert_output --partial "sandbox-pal-workspace"
 }
 
 @test "pal-workspace start launches a stopped workspace" {
     fake_docker_set_absent
     run bash "$SKILL_SCRIPT" start
     assert_success
-    run grep "run -d --name claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    run grep "run -d --name sandbox-pal-workspace" "$FAKE_DOCKER_LOG"
     assert_success
 }
 
@@ -72,7 +72,7 @@ teardown() {
     run bash "$SKILL_SCRIPT" start
     assert_success
     assert_output --partial "already running"
-    run grep "^stop claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    run grep "^stop sandbox-pal-workspace" "$FAKE_DOCKER_LOG"
     assert_success
 }
 
@@ -80,7 +80,7 @@ teardown() {
     fake_docker_set_running
     run bash "$SKILL_SCRIPT" stop
     assert_success
-    run grep "^stop claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    run grep "^stop sandbox-pal-workspace" "$FAKE_DOCKER_LOG"
     assert_success
 }
 
@@ -88,9 +88,9 @@ teardown() {
     fake_docker_set_running
     run bash "$SKILL_SCRIPT" restart
     assert_success
-    run grep "^stop claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    run grep "^stop sandbox-pal-workspace" "$FAKE_DOCKER_LOG"
     assert_success
-    run grep "^start claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    run grep "^start sandbox-pal-workspace" "$FAKE_DOCKER_LOG"
     assert_success
 }
 

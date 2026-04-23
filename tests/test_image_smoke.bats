@@ -7,7 +7,7 @@ load 'test_helper/bats-assert/load'
 # reference an image that was only built in test 1 and then torn down.
 setup_file() {
     REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME}")/.." && pwd)"
-    IMAGE_TAG="claude-pal:test-$RANDOM"
+    IMAGE_TAG="sandbox-pal:test-$RANDOM"
     export IMAGE_TAG REPO_ROOT
     "$REPO_ROOT/scripts/build-image.sh" "$IMAGE_TAG" >/dev/null
 }

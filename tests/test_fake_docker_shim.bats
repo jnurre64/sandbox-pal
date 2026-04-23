@@ -9,20 +9,20 @@ setup() { fake_docker_setup; }
 teardown() { fake_docker_teardown; }
 
 @test "fake docker: 'image inspect' fails when image not registered" {
-    run docker image inspect claude-pal:latest
+    run docker image inspect sandbox-pal:latest
     assert_failure
 }
 
 @test "fake docker: 'image inspect' succeeds after fake_docker_set_image_exists" {
-    fake_docker_set_image_exists claude-pal:latest
-    run docker image inspect claude-pal:latest
+    fake_docker_set_image_exists sandbox-pal:latest
+    run docker image inspect sandbox-pal:latest
     assert_success
 }
 
 @test "fake docker: 'build' is recorded in FAKE_DOCKER_LOG" {
-    run docker build -t claude-pal:latest -f some/Dockerfile .
+    run docker build -t sandbox-pal:latest -f some/Dockerfile .
     assert_success
-    run grep -F "build -t claude-pal:latest" "$FAKE_DOCKER_LOG"
+    run grep -F "build -t sandbox-pal:latest" "$FAKE_DOCKER_LOG"
     assert_success
 }
 

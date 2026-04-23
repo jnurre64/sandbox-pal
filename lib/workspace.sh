@@ -1,10 +1,10 @@
 # lib/workspace.sh
 # shellcheck shell=bash
-# Host-side lifecycle for the long-running claude-pal workspace container.
+# Host-side lifecycle for the long-running sandbox-pal workspace container.
 
-: "${PAL_WORKSPACE_NAME:=claude-pal-workspace}"
-: "${PAL_WORKSPACE_VOLUME:=claude-pal-claude}"
-: "${PAL_WORKSPACE_IMAGE:=claude-pal:latest}"
+: "${PAL_WORKSPACE_NAME:=sandbox-pal-workspace}"
+: "${PAL_WORKSPACE_VOLUME:=sandbox-pal-claude}"
+: "${PAL_WORKSPACE_IMAGE:=sandbox-pal:latest}"
 
 _pal_workspace_exists() {
     docker inspect "$PAL_WORKSPACE_NAME" >/dev/null 2>&1

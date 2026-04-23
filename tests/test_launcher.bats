@@ -50,7 +50,7 @@ teardown() {
     run grep -- "^run -d" "$FAKE_DOCKER_LOG"
     assert_failure   # must NOT be using `docker run` anymore
 
-    run grep -- "^exec .*claude-pal-workspace.*run-pipeline.sh implement owner/repo 42" "$FAKE_DOCKER_LOG"
+    run grep -- "^exec .*sandbox-pal-workspace.*run-pipeline.sh implement owner/repo 42" "$FAKE_DOCKER_LOG"
     assert_success
 
     run grep -- "^cp .*container-CLAUDE.md" "$FAKE_DOCKER_LOG"

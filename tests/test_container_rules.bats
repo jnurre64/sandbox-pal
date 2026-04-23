@@ -49,6 +49,6 @@ teardown() {
         > "$HOME/.config/claude-pal/container-CLAUDE.md"
     run pal_container_rules_sync_to_container
     assert_success
-    run grep "cp .*container-CLAUDE.md claude-pal-workspace:/home/agent/.claude/CLAUDE.md" "$FAKE_DOCKER_LOG"
+    run grep "cp .*container-CLAUDE.md sandbox-pal-workspace:/home/agent/.claude/CLAUDE.md" "$FAKE_DOCKER_LOG"
     assert_success
 }

@@ -18,20 +18,20 @@ teardown() {
 }
 
 @test "pal_image_exists: returns success when image is present" {
-    fake_docker_set_image_exists claude-pal:latest
+    fake_docker_set_image_exists sandbox-pal:latest
     run pal_image_exists
     assert_success
 }
 
 @test "pal_image_exists: returns failure when image is absent" {
-    fake_docker_set_image_absent claude-pal:latest
+    fake_docker_set_image_absent sandbox-pal:latest
     run pal_image_exists
     assert_failure
 }
 
 @test "pal_image_exists: uses PAL_WORKSPACE_IMAGE override" {
-    fake_docker_set_image_exists claude-pal:v0.5.0
-    PAL_WORKSPACE_IMAGE=claude-pal:v0.5.0 run pal_image_exists
+    fake_docker_set_image_exists sandbox-pal:v0.5.0
+    PAL_WORKSPACE_IMAGE=sandbox-pal:v0.5.0 run pal_image_exists
     assert_success
 }
 
@@ -40,7 +40,7 @@ teardown() {
     assert_success
     run grep -F -- "-f ${CLAUDE_PLUGIN_ROOT}/image/Dockerfile" "$FAKE_DOCKER_LOG"
     assert_success
-    run grep -F -- "-t claude-pal:latest" "$FAKE_DOCKER_LOG"
+    run grep -F -- "-t sandbox-pal:latest" "$FAKE_DOCKER_LOG"
     assert_success
     # Build context is the plugin root (trailing positional).
     run grep -F -- "${CLAUDE_PLUGIN_ROOT}" "$FAKE_DOCKER_LOG"
@@ -62,14 +62,14 @@ teardown() {
 }
 
 @test "pal_image_build: respects PAL_WORKSPACE_IMAGE tag override" {
-    PAL_WORKSPACE_IMAGE=claude-pal:v0.5.0 run pal_image_build
+    PAL_WORKSPACE_IMAGE=sandbox-pal:v0.5.0 run pal_image_build
     assert_success
-    run grep -F -- "-t claude-pal:v0.5.0" "$FAKE_DOCKER_LOG"
+    run grep -F -- "-t sandbox-pal:v0.5.0" "$FAKE_DOCKER_LOG"
     assert_success
 }
 
 @test "pal_image_ensure: builds when image is absent" {
-    fake_docker_set_image_absent claude-pal:latest
+    fake_docker_set_image_absent sandbox-pal:latest
     run pal_image_ensure
     assert_success
     run grep -F "build" "$FAKE_DOCKER_LOG"
@@ -77,7 +77,7 @@ teardown() {
 }
 
 @test "pal_image_ensure: does NOT build when image is already present" {
-    fake_docker_set_image_exists claude-pal:latest
+    fake_docker_set_image_exists sandbox-pal:latest
     run pal_image_ensure
     assert_success
     run grep -F "build" "$FAKE_DOCKER_LOG"
@@ -85,8 +85,8 @@ teardown() {
 }
 
 @test "pal_image_ensure: prints progress note when building" {
-    fake_docker_set_image_absent claude-pal:latest
+    fake_docker_set_image_absent sandbox-pal:latest
     run pal_image_ensure
     assert_success
-    assert_output --partial "pal: building claude-pal:latest"
+    assert_output --partial "pal: building sandbox-pal:latest"
 }

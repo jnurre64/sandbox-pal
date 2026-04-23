@@ -21,9 +21,9 @@ teardown() {
     fake_docker_set_absent
     run pal_workspace_start
     assert_success
-    run grep "volume create claude-pal-claude" "$FAKE_DOCKER_LOG"
+    run grep "volume create sandbox-pal-claude" "$FAKE_DOCKER_LOG"
     assert_success
-    run grep "run -d --name claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    run grep "run -d --name sandbox-pal-workspace" "$FAKE_DOCKER_LOG"
     assert_success
     run grep "cap-add NET_ADMIN" "$FAKE_DOCKER_LOG"
     assert_success
@@ -47,7 +47,7 @@ teardown() {
     fake_docker_set_stopped
     run pal_workspace_start
     assert_success
-    run grep "^start claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    run grep "^start sandbox-pal-workspace" "$FAKE_DOCKER_LOG"
     assert_success
 }
 
@@ -65,7 +65,7 @@ teardown() {
     fake_docker_set_running
     run pal_workspace_stop
     assert_success
-    run grep "^stop claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    run grep "^stop sandbox-pal-workspace" "$FAKE_DOCKER_LOG"
     assert_success
 }
 
@@ -81,9 +81,9 @@ teardown() {
     fake_docker_set_running
     run pal_workspace_restart
     assert_success
-    run grep "^stop claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    run grep "^stop sandbox-pal-workspace" "$FAKE_DOCKER_LOG"
     assert_success
-    run grep "^start claude-pal-workspace" "$FAKE_DOCKER_LOG"
+    run grep "^start sandbox-pal-workspace" "$FAKE_DOCKER_LOG"
     assert_success
 }
 
@@ -119,6 +119,6 @@ teardown() {
     fake_docker_set_running
     run pal_workspace_status
     assert_success
-    assert_output --partial "claude-pal-workspace"
+    assert_output --partial "sandbox-pal-workspace"
     assert_output --partial "running"
 }

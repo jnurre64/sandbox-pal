@@ -18,9 +18,9 @@ teardown() {
 }
 
 @test "pal_memory_slug encodes / as -" {
-    run pal_memory_slug /home/jonny/repos/claude-pal
+    run pal_memory_slug /home/jonny/repos/sandbox-pal
     assert_success
-    assert_output "-home-jonny-repos-claude-pal"
+    assert_output "-home-jonny-repos-sandbox-pal"
 }
 
 @test "pal_memory_slug encodes nested path" {
@@ -49,7 +49,7 @@ teardown() {
     # payload (inspect FAKE_DOCKER_LOG).
     run grep -E 'exec.*rm -rf /home/agent/.claude/projects/-home-agent-work-run-1/memory' "$FAKE_DOCKER_LOG"
     assert_success
-    run grep -E 'cp .* claude-pal-workspace:/home/agent/.claude/projects/-home-agent-work-run-1/memory' "$FAKE_DOCKER_LOG"
+    run grep -E 'cp .* sandbox-pal-workspace:/home/agent/.claude/projects/-home-agent-work-run-1/memory' "$FAKE_DOCKER_LOG"
     assert_success
 }
 

@@ -33,7 +33,7 @@ NOTIFY_MOCK
 case "$1" in
     info) exit 0 ;;
     inspect) exit 0 ;;
-    ps) echo "claude-pal-workspace"; exit 0 ;;
+    ps) echo "sandbox-pal-workspace"; exit 0 ;;
     volume|cp|pull|start|stop|rm) exit 0 ;;
     exec)
         run_id=""
@@ -41,7 +41,7 @@ case "$1" in
             case "$arg" in RUN_ID=*) run_id="${arg#RUN_ID=}" ;; esac
         done
         if [ -n "$run_id" ]; then
-            status_dir="${XDG_DATA_HOME:-$HOME/.local/share}/claude-pal/runs/$run_id"
+            status_dir="${XDG_DATA_HOME:-$HOME/.local/share}/sandbox-pal/runs/$run_id"
             mkdir -p "$status_dir"
             cat > "$status_dir/status.json" <<EOF_STATUS
 {"outcome":"success","phase":"complete","pr_url":"https://github.com/x/y/pull/88","pr_number":88,"failure_reason":null,"commits":[],"review_concerns_addressed":[],"review_concerns_unresolved":[]}

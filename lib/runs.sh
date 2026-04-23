@@ -7,12 +7,12 @@ pal_runs_dir() {
     host_os=$(uname -s)
     case "$host_os" in
         Linux|Darwin)
-            echo "${XDG_DATA_HOME:-$HOME/.local/share}/claude-pal/runs"
+            echo "${XDG_DATA_HOME:-$HOME/.local/share}/sandbox-pal/runs"
             ;;
         MINGW*|MSYS*|CYGWIN*)
             local local_app
             local_app=$(cygpath -u "$LOCALAPPDATA" 2>/dev/null || echo "$LOCALAPPDATA")
-            echo "$local_app/claude-pal/runs"
+            echo "$local_app/sandbox-pal/runs"
             ;;
     esac
 }
@@ -47,7 +47,7 @@ pal_write_launch_meta() {
   "host_os": "$(uname -s)",
   "backend": "${PAL_BACKEND:-docker-linux}",
   "docker_host": $([ -n "${DOCKER_HOST:-}" ] && printf '"%s"' "$DOCKER_HOST" || echo null),
-  "image_tag": "${PAL_IMAGE_TAG:-claude-pal:latest}"
+  "image_tag": "${PAL_IMAGE_TAG:-sandbox-pal:latest}"
 }
 EOF_META
 }

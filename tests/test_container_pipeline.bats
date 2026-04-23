@@ -4,7 +4,7 @@ load 'test_helper/bats-assert/load'
 
 setup() {
     REPO_ROOT="$(cd "$(dirname "${BATS_TEST_FILENAME}")/.." && pwd)"
-    IMAGE_TAG="claude-pal:test-pipeline-$RANDOM"
+    IMAGE_TAG="sandbox-pal:test-pipeline-$RANDOM"
     STATUS_DIR="$(mktemp -d)"
     chmod 0777 "$STATUS_DIR"   # container runs as non-root agent user with different UID
 }

@@ -18,7 +18,7 @@ echo "$*" >> "$FAKE_DOCKER_LOG"
 case "$1" in
     ps)
         if [ -f "$FAKE_DOCKER_STATE/running" ]; then
-            echo "claude-pal-workspace"
+            echo "sandbox-pal-workspace"
         fi
         ;;
     inspect)
@@ -109,14 +109,14 @@ fake_docker_set_absent() {
 }
 
 fake_docker_set_image_exists() {
-    local tag="${1:-claude-pal:latest}"
+    local tag="${1:-sandbox-pal:latest}"
     local safe_tag="${tag//:/_}"
     safe_tag="${safe_tag//\//_}"
     : > "$FAKE_DOCKER_STATE/image_${safe_tag}"
 }
 
 fake_docker_set_image_absent() {
-    local tag="${1:-claude-pal:latest}"
+    local tag="${1:-sandbox-pal:latest}"
     local safe_tag="${tag//:/_}"
     safe_tag="${safe_tag//\//_}"
     rm -f "$FAKE_DOCKER_STATE/image_${safe_tag}"
