@@ -20,29 +20,9 @@ claude-pal is a Claude Code plugin that manages a long-running Docker workspace 
 
 ## Install steps
 
-### 1. Clone the repo
+### 1. Export `GH_TOKEN` in your shell profile
 
-```bash
-git clone https://github.com/jnurre64/claude-pal.git ~/repos/claude-pal
-cd ~/repos/claude-pal
-```
-
-### 2. Build (or pull) the container image
-
-```bash
-./scripts/build-image.sh
-# → builds claude-pal:latest on your local Docker daemon
-```
-
-Verify:
-
-```bash
-docker images claude-pal
-```
-
-### 3. Export `GH_TOKEN` in your shell profile
-
-claude-pal only needs **one** host env var: `GH_TOKEN`. Claude credentials live inside the workspace container (step 5) — they are never exported from your shell.
+claude-pal only needs **one** host env var: `GH_TOKEN`. Claude credentials live inside the workspace container (step 3) — they are never exported from your shell.
 
 Create a fine-grained GitHub PAT at https://github.com/settings/personal-access-tokens. Grant repository access for each repo you plan to dispatch against, with these scopes:
 
@@ -68,36 +48,36 @@ Save, then `source ~/.bashrc` in any shell that needs the new value.
 
 > **Do not** set `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` in your shell — the workspace-container model does not use them. If you have them set from an earlier claude-pal install, `unset` them and remove them from your rc files. See [`docs/authentication.md`](authentication.md) for the full rationale.
 
-### 4. Load claude-pal as a Claude Code plugin
+### 2. Install the Claude Code plugin from the marketplace
 
-claude-pal is a Claude Code plugin (manifest at `.claude-plugin/plugin.json`, shared libs at plugin-root `lib/`, skills under `skills/pal-*/SKILL.md`, commands under `commands/*.md`). It must be loaded *as a plugin* so `${CLAUDE_PLUGIN_ROOT}` is populated — do NOT copy `skills/pal-*` into `~/.claude/skills/`; the `lib/` sourcing inside each SKILL.md will fail.
+From any `claude` session:
 
-**Developer / local-only (recommended today):**
-
-```bash
-# Validate the manifest (fast, no session needed)
-claude plugin validate ~/repos/claude-pal
-# → "✔ Validation passed"
-
-# Load for one session at a time
-claude --plugin-dir ~/repos/claude-pal
+```
+/plugin marketplace add jnurre64/claude-pal
+/plugin install claude-pal@claude-pal
 ```
 
-`--plugin-dir` is scoped to the one `claude` session. Inside that session, `/plugin` lists `claude-pal` and `/skills` lists the `pal-*` skills. Persistent / marketplace install is out of scope for v0.x.
+Claude Code pulls the repo into its plugin cache and persists the install across sessions. Verify:
 
-### 5. Create the workspace and log in
+```
+/plugin          # should show claude-pal as loaded
+/skills          # should list pal-plan, pal-implement, pal-workspace, pal-login, pal-logout, etc.
+```
 
-Inside a `claude --plugin-dir ~/repos/claude-pal` session:
+### 3. Create the workspace, build the image, and log in
+
+In the same session:
 
 ```
 /claude-pal:pal-setup
-# → verifies Docker + GH_TOKEN + image
-# → creates the `claude-pal-claude` named volume
-# → starts the `claude-pal-workspace` container
+```
 
+`pal-setup` verifies Docker + `GH_TOKEN`, then ensures the `claude-pal:latest` image exists. The first time you run it, `pal-setup` will offer to build the image (a few minutes; `docker build` against the Dockerfile inside the cached plugin). Subsequent runs are no-ops for the image step.
+
+```
 /claude-pal:pal-login
 # → opens a browser to authorize Claude inside the workspace
-# → writes /home/agent/.claude/.credentials.json into the named volume
+# → writes /home/agent/.claude/.credentials.json into the `claude-pal-claude` named volume
 # → one-time, persists for the workspace's lifetime
 ```
 
@@ -114,28 +94,10 @@ docker volume inspect claude-pal-claude
 docker exec claude-pal-workspace ls -la /home/agent/.claude/
 ```
 
-### 6. Verify
-
-Inside the `claude --plugin-dir ~/repos/claude-pal` session:
+### 4. First live dispatch (validate end-to-end)
 
 ```
-/plugin          # should show claude-pal as loaded
-/skills          # should list pal-plan, pal-implement, pal-workspace, pal-login, pal-logout, etc.
-```
-
-From the host shell:
-
-```bash
-docker info                           # should succeed
-[ -n "$GH_TOKEN" ] && echo "gh cred: ok"
-GH_TOKEN="$GH_TOKEN" gh auth status   # should succeed
-docker ps --filter name=claude-pal-workspace   # should show the workspace running
-```
-
-### 7. First live dispatch (validate end-to-end)
-
-```
-# Inside the claude --plugin-dir session, from a checkout of a GitHub repo the PAT can access:
+# From a checkout of a GitHub repo the PAT can access:
 /claude-pal:pal-plan
 # → publishes the most recent docs/superpowers/plans/*.md file as a new issue
 # → prints the issue URL
@@ -175,3 +137,27 @@ v0.x ships the core flow (plan → implement → PR) in sync mode, plus the work
 
 - Async mode + `/claude-pal:pal-status`, `/claude-pal:pal-logs`, `/claude-pal:pal-cancel`
 - Expanded `/claude-pal:pal-revise` coverage for PR-review follow-ups
+
+## Contributor / local dev loop
+
+If you're developing against a clone of the repo (sending PRs, iterating on skills), the marketplace install is not what you want — use the session-scoped `--plugin-dir` instead so you can edit files and see changes immediately.
+
+```bash
+# Clone
+git clone https://github.com/jnurre64/claude-pal.git ~/repos/claude-pal
+cd ~/repos/claude-pal
+
+# Validate the manifest (fast, no session needed)
+claude plugin validate ~/repos/claude-pal
+# → "✔ Validation passed"
+
+# Build the image directly (the marketplace flow does this via /pal-setup;
+# contributors often want to iterate on the Dockerfile without going through
+# the skill each time)
+./scripts/build-image.sh
+
+# Load the plugin for one session
+claude --plugin-dir ~/repos/claude-pal
+```
+
+`--plugin-dir` is scoped to that single `claude` session. Contributors typically have the marketplace install removed (`/plugin marketplace remove claude-pal`) while iterating, to avoid two loaded copies of the plugin fighting over skill names.
