@@ -1,16 +1,16 @@
-# claude-pal
+# sandbox-pal
 
 Local agent dispatch via a Claude Code plugin.
 
 ## Key Documentation
 
-- Full design: `docs/superpowers/specs/2026-04-18-claude-pal-design.md`
-- Implementation plan: `docs/superpowers/plans/2026-04-18-claude-pal.md`
+- Full design: `docs/superpowers/specs/2026-04-18-sandbox-pal-design.md`
+- Implementation plan: `docs/superpowers/plans/2026-04-18-sandbox-pal.md`
 - Upstream tracking (vendored pieces): `UPSTREAM.md`
 
 ## Architecture
 
-claude-pal ships as a Claude Code plugin. Shared bash helpers under plugin-root `lib/` are referenced from every `SKILL.md` via `${CLAUDE_PLUGIN_ROOT}` (set by Claude Code at skill-invocation time). Do NOT use `claude-skill-path` or `$(dirname "${BASH_SOURCE[0]}")` dances in `SKILL.md` — use `${CLAUDE_PLUGIN_ROOT}/lib/foo.sh`.
+sandbox-pal ships as a Claude Code plugin. Shared bash helpers under plugin-root `lib/` are referenced from every `SKILL.md` via `${CLAUDE_PLUGIN_ROOT}` (set by Claude Code at skill-invocation time). Do NOT use `claude-skill-path` or `$(dirname "${BASH_SOURCE[0]}")` dances in `SKILL.md` — use `${CLAUDE_PLUGIN_ROOT}/lib/foo.sh`.
 
 - `.claude-plugin/plugin.json` — Claude Code plugin manifest
 - `image/Dockerfile` — base Ubuntu image with claude CLI, gh, jq, git, iptables
@@ -25,15 +25,15 @@ claude-pal ships as a Claude Code plugin. Shared bash helpers under plugin-root 
 
 ## Authentication model
 
-claude-pal uses a **long-running workspace container** that owns its own Claude
+sandbox-pal uses a **long-running workspace container** that owns its own Claude
 credentials. `claude /login` is run interactively **inside** the container
 once; the resulting `.credentials.json` persists in a Docker-managed named
-volume (`claude-pal-claude`) and never touches the host filesystem. Every
+volume (`sandbox-pal-claude`) and never touches the host filesystem. Every
 `pal-*` invocation `docker exec`s into the workspace.
 
 The host shell only needs `GH_TOKEN` (or `GITHUB_TOKEN`) — there is **no**
 `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` env-var path. `lib/config.sh`
-asserts `GH_TOKEN` and optionally sources `~/.config/claude-pal/config.env` for
+asserts `GH_TOKEN` and optionally sources `~/.config/sandbox-pal/config.env` for
 non-secret knobs (`PAL_CPUS`, `PAL_MEMORY`, `PAL_SYNC_MEMORIES`,
 `PAL_SYNC_TRANSCRIPTS`).
 
@@ -53,13 +53,13 @@ Do NOT copy `skills/pal-*` into `~/.claude/skills/` — shared helpers at plugin
 
 ```bash
 # 1. Validate the manifest (fast, no session needed)
-claude plugin validate ~/repos/claude-pal
+claude plugin validate ~/repos/sandbox-pal
 # → "✔ Validation passed"
 
 # 2. Load for one session only (session-scoped; no global install state)
-claude --plugin-dir ~/repos/claude-pal
+claude --plugin-dir ~/repos/sandbox-pal
 # Inside: `/skills` lists pal-implement (and whatever else Phase 4+ adds).
-# When a skill fires, ${CLAUDE_PLUGIN_ROOT} points at ~/repos/claude-pal,
+# When a skill fires, ${CLAUDE_PLUGIN_ROOT} points at ~/repos/sandbox-pal,
 # and every SKILL.md's `. "${CLAUDE_PLUGIN_ROOT}/lib/*.sh"` resolves.
 ```
 

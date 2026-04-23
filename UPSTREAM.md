@@ -11,7 +11,7 @@ Resync via `scripts/diff-upstream.sh` (see Phase 8).
 | `image/opt/pal/prompts/adversarial-plan.md` | `prompts/adversarial-plan.md` | 07b9347774702e66064abe62d6d329f48b459121 | none |
 | `image/opt/pal/prompts/post-impl-review.md` | `prompts/post-impl-review.md` | 07b9347774702e66064abe62d6d329f48b459121 | none |
 | `image/opt/pal/prompts/post-impl-retry.md` | `prompts/post-impl-retry.md` | 07b9347774702e66064abe62d6d329f48b459121 | none |
-| `image/opt/pal/prompts/implement.md` | `prompts/implement.md` | 07b9347774702e66064abe62d6d329f48b459121 | removed label-state-machine references; updated intro to mention claude-pal container |
+| `image/opt/pal/prompts/implement.md` | `prompts/implement.md` | 07b9347774702e66064abe62d6d329f48b459121 | removed label-state-machine references; updated intro to mention sandbox-pal container |
 
 ## Libraries
 

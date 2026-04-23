@@ -1,6 +1,6 @@
-# Contributing to claude-pal
+# Contributing to sandbox-pal
 
-Thank you for contributing to claude-pal!
+Thank you for contributing to sandbox-pal!
 
 ## Workflow
 
@@ -30,4 +30,4 @@ All shell scripts must pass `shellcheck` with zero warnings and use `set -euo pi
 
 ## Reporting issues
 
-Use [GitHub Issues](https://github.com/jnurre64/claude-pal/issues). Search before filing to avoid duplicates. Include your OS, Docker version, and the relevant log output from `~/.pal/runs/`.
+Use [GitHub Issues](https://github.com/jnurre64/sandbox-pal/issues). Search before filing to avoid duplicates. Include your OS, Docker version, and the relevant log output from `~/.pal/runs/`.
