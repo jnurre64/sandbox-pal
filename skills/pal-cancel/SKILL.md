@@ -1,6 +1,6 @@
 ---
 name: pal-cancel
-description: Cancel an in-flight claude-pal run. Sends SIGTERM (10s grace) then SIGKILL.
+description: Cancel an in-flight sandbox-pal run. Sends SIGTERM (10s grace) then SIGKILL.
 ---
 
 # pal-cancel

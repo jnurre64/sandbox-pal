@@ -1,6 +1,6 @@
 ---
 name: pal-plan
-description: Use when the user wants to publish an implementation plan to GitHub for pal to pick up. Takes the most recent plan file in docs/superpowers/plans/ (or an explicit --file path) and posts it as an issue comment with <!-- agent-plan --> marker. Creates a new issue if no issue number given. Use when user says "publish this plan", "post the plan to GitHub", "create an issue for pal", or has a plan file ready and wants pal to see it. Does NOT launch a container — it's a checkpoint before /claude-pal:pal-implement.
+description: Use when the user wants to publish an implementation plan to GitHub for pal to pick up. Takes the most recent plan file in docs/superpowers/plans/ (or an explicit --file path) and posts it as an issue comment with <!-- agent-plan --> marker. Creates a new issue if no issue number given. Use when user says "publish this plan", "post the plan to GitHub", "create an issue for pal", or has a plan file ready and wants pal to see it. Does NOT launch a container — it's a checkpoint before /sandbox-pal:pal-implement.
 ---
 
 # pal-plan

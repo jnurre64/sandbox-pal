@@ -1,10 +1,10 @@
 ---
-description: Use when the user hasn't configured claude-pal yet and wants a guided setup. Walks them through obtaining a fine-grained GitHub PAT and exporting `GH_TOKEN`, then pulling/starting the long-running workspace container and minting Claude credentials inside it via `/pal-login` (persisted in the `claude-pal-claude` named volume, never on the host). Use when user sees "missing required environment variable" from claude-pal, or asks "how do I set up pal", "configure claude-pal", "set pal tokens", or similar.
+description: Use when the user hasn't configured sandbox-pal yet and wants a guided setup. Walks them through obtaining a fine-grained GitHub PAT and exporting `GH_TOKEN`, then pulling/starting the long-running workspace container and minting Claude credentials inside it via `/pal-login` (persisted in the `sandbox-pal-claude` named volume, never on the host). Use when user sees "missing required environment variable" from sandbox-pal, or asks "how do I set up pal", "configure sandbox-pal", "set pal tokens", or similar.
 ---
 
-# /claude-pal:pal-setup
+# /sandbox-pal:pal-setup
 
-Guided, one-time setup for claude-pal.
+Guided, one-time setup for sandbox-pal.
 
 Walk the user through:
 
@@ -16,7 +16,7 @@ Walk the user through:
        source ~/.bashrc
 
    The PAT needs `Contents`, `Pull requests`, `Issues` (read/write) on target repos.
-3. Ensure the `claude-pal:latest` image is present. Source the helper and call
+3. Ensure the `sandbox-pal:latest` image is present. Source the helper and call
    `pal_image_ensure`:
 
        . "${CLAUDE_PLUGIN_ROOT}/lib/image.sh"
@@ -33,12 +33,12 @@ Walk the user through:
 4. Run `/pal-workspace start` — creates the named volume and the long-running
    workspace container.
 5. Run `/pal-login` — mints Claude credentials inside the workspace (one-time
-   interactive browser flow). Credentials persist in the `claude-pal-claude`
+   interactive browser flow). Credentials persist in the `sandbox-pal-claude`
    named volume; they never touch the host filesystem.
 6. (Optional) `/pal-workspace edit-rules` — opens an empty
-   `~/.config/claude-pal/container-CLAUDE.md` that will be synced into the
+   `~/.config/sandbox-pal/container-CLAUDE.md` that will be synced into the
    container on every run. Use it for container-scoped behavior rules.
-7. (Optional) create `~/.config/claude-pal/config.env` with non-secret knobs:
+7. (Optional) create `~/.config/sandbox-pal/config.env` with non-secret knobs:
 
        PAL_CPUS=2.0
        PAL_MEMORY=4g

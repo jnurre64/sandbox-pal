@@ -1,6 +1,6 @@
 ---
 name: pal-workspace
-description: Manage the claude-pal workspace container (start, stop, restart, status, edit-rules).
+description: Manage the sandbox-pal workspace container (start, stop, restart, status, edit-rules).
 ---
 
 # pal-workspace
@@ -11,7 +11,7 @@ Subcommands:
 - `stop`       — graceful stop
 - `restart`    — stop + start
 - `status`     — print container state + auth state
-- `edit-rules` — open `$EDITOR` on `~/.config/claude-pal/container-CLAUDE.md`
+- `edit-rules` — open `$EDITOR` on `~/.config/sandbox-pal/container-CLAUDE.md`
 
 ```bash
 set -euo pipefail

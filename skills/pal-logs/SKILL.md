@@ -1,6 +1,6 @@
 ---
 name: pal-logs
-description: Tail logs for a claude-pal run. Supports --follow to stream live output.
+description: Tail logs for a sandbox-pal run. Supports --follow to stream live output.
 ---
 
 # pal-logs

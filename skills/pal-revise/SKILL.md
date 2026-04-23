@@ -1,6 +1,6 @@
 ---
 name: pal-revise
-description: Dispatch a focused revision pipeline inside the claude-pal workspace container to address PR review feedback. Fetches PR branch and review comments, runs a focused implementation pass to address concerns, pushes new commits to the PR.
+description: Dispatch a focused revision pipeline inside the sandbox-pal workspace container to address PR review feedback. Fetches PR branch and review comments, runs a focused implementation pass to address concerns, pushes new commits to the PR.
 ---
 
 # pal-revise

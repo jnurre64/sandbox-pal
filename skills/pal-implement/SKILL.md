@@ -1,11 +1,11 @@
 ---
 name: pal-implement
-description: Use when the user wants pal to actually start working on a GitHub issue. Dispatches a pipeline (adversarial plan review → TDD implementation → post-impl review → opens PR) inside the long-running claude-pal workspace container. Use when user says "have pal implement this", "kick off pal on issue #N", "dispatch pal", "run the pal container on this issue", or similar. Sync by default; pass --async to background.
+description: Use when the user wants pal to actually start working on a GitHub issue. Dispatches a pipeline (adversarial plan review → TDD implementation → post-impl review → opens PR) inside the long-running sandbox-pal workspace container. Use when user says "have pal implement this", "kick off pal on issue #N", "dispatch pal", "run the pal container on this issue", or similar. Sync by default; pass --async to background.
 ---
 
 # pal-implement
 
-Dispatch the claude-pal pipeline to implement a GitHub issue's posted plan.
+Dispatch the sandbox-pal pipeline to implement a GitHub issue's posted plan.
 
 ## Usage
 

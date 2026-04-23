@@ -12,7 +12,7 @@ Guide the user from an idea to a dispatched pal run that opens a PR.
 
 This flow depends on the `superpowers` plugin (provides `brainstorming` and `writing-plans` skills). If those skills are not listed in your current session's available skills, stop and tell the user:
 
-> The /claude-pal:pal-brainstorm flow uses skills from the `superpowers` plugin. Install it from the `claude-plugins-official` marketplace, then run /claude-pal:pal-brainstorm again.
+> The /sandbox-pal:pal-brainstorm flow uses skills from the `superpowers` plugin. Install it from the `claude-plugins-official` marketplace, then run /sandbox-pal:pal-brainstorm again.
 
 Do not attempt to proceed past this check if `superpowers:brainstorming` or `superpowers:writing-plans` are unavailable.
 
@@ -21,9 +21,9 @@ Do not attempt to proceed past this check if `superpowers:brainstorming` or `sup
 1. **Brainstorm.** Invoke `superpowers:brainstorming` with the user's seed idea ($ARGUMENTS) to explore intent, requirements, and design. Let the brainstorming skill drive — don't short-circuit it.
 2. **Write the plan.** Once the brainstorm converges, invoke `superpowers:writing-plans` to produce an implementation plan file under `docs/superpowers/plans/`.
 3. **Checkpoint.** Show the user the plan file path and ask them to confirm before publishing to GitHub. If they want revisions, loop back to writing-plans.
-4. **Publish.** Invoke the `pal-plan` skill (or `/claude-pal:pal-plan`) to post the plan as a GitHub issue comment. If the user hasn't named an existing issue, pal-plan will create a new one. Share the resulting issue URL with the user.
-5. **Confirm.** Ask the user to review the posted plan on GitHub and confirm before dispatching. Offer to run /claude-pal:pal-implement in sync or async mode.
-6. **Implement.** Invoke the `pal-implement` skill (or `/claude-pal:pal-implement <issue#>`) with `--async` if the user requested background execution. Otherwise run sync and stream the status to the user.
+4. **Publish.** Invoke the `pal-plan` skill (or `/sandbox-pal:pal-plan`) to post the plan as a GitHub issue comment. If the user hasn't named an existing issue, pal-plan will create a new one. Share the resulting issue URL with the user.
+5. **Confirm.** Ask the user to review the posted plan on GitHub and confirm before dispatching. Offer to run /sandbox-pal:pal-implement in sync or async mode.
+6. **Implement.** Invoke the `pal-implement` skill (or `/sandbox-pal:pal-implement <issue#>`) with `--async` if the user requested background execution. Otherwise run sync and stream the status to the user.
 
 ## Stopping points
 

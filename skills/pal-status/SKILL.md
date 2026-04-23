@@ -1,6 +1,6 @@
 ---
 name: pal-status
-description: List claude-pal runs or show details on a specific one. Reconciles stale status against docker ps.
+description: List sandbox-pal runs or show details on a specific one. Reconciles stale status against docker ps.
 ---
 
 # pal-status
