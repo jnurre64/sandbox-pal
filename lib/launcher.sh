@@ -62,7 +62,8 @@ pal_launch_sync() {
     local run_dir
     run_dir=$(pal_run_dir "$run_id")
     mkdir -p "$run_dir"
-    touch "$run_dir/log" && chmod 0666 "$run_dir/log" 2>/dev/null || true
+    touch "$run_dir/log"
+    chmod 0666 "$run_dir/log" 2>/dev/null || true
 
     local -a env_args=()
     _pal_launcher_env_args "$run_id" env_args
@@ -107,7 +108,8 @@ pal_launch_async() {
     local run_dir
     run_dir=$(pal_run_dir "$run_id")
     mkdir -p "$run_dir"
-    touch "$run_dir/log" && chmod 0666 "$run_dir/log" 2>/dev/null || true
+    touch "$run_dir/log"
+    chmod 0666 "$run_dir/log" 2>/dev/null || true
 
     local -a env_args=()
     _pal_launcher_env_args "$run_id" env_args

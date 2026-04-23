@@ -10,6 +10,8 @@ setup() {
     export CLAUDE_PLUGIN_ROOT="$REPO_ROOT"
     export HOME="$BATS_TEST_TMPDIR/home"
     mkdir -p "$HOME"
+    # Isolate from any inherited XDG_CONFIG_HOME — CI runners leak one in.
+    export XDG_CONFIG_HOME="$HOME/.config"
     fake_docker_setup
     # shellcheck source=../lib/container-rules.sh
     . "$REPO_ROOT/lib/container-rules.sh"
