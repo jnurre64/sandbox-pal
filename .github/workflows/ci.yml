@@ -15,6 +15,16 @@ jobs:
         run: |
           shellcheck $(find . -name '*.sh' -not -path '*/bats/*' -not -path '*/.git/*')
 
+  marketplace-json:
+    name: marketplace.json parses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate .claude-plugin/marketplace.json with jq
+        run: jq -e . .claude-plugin/marketplace.json > /dev/null
+      - name: Validate .claude-plugin/plugin.json with jq
+        run: jq -e . .claude-plugin/plugin.json > /dev/null
+
   bats:
     name: bats
     runs-on: ubuntu-latest
