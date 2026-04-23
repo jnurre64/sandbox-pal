@@ -16,3 +16,11 @@ pal_image_build() {
         -t "$PAL_WORKSPACE_IMAGE" \
         "${CLAUDE_PLUGIN_ROOT}"
 }
+
+pal_image_ensure() {
+    if pal_image_exists; then
+        return 0
+    fi
+    echo "pal: building ${PAL_WORKSPACE_IMAGE}…" >&2
+    pal_image_build
+}

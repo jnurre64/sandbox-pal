@@ -67,3 +67,26 @@ teardown() {
     run grep -F -- "-t claude-pal:v0.5.0" "$FAKE_DOCKER_LOG"
     assert_success
 }
+
+@test "pal_image_ensure: builds when image is absent" {
+    fake_docker_set_image_absent claude-pal:latest
+    run pal_image_ensure
+    assert_success
+    run grep -F "build" "$FAKE_DOCKER_LOG"
+    assert_success
+}
+
+@test "pal_image_ensure: does NOT build when image is already present" {
+    fake_docker_set_image_exists claude-pal:latest
+    run pal_image_ensure
+    assert_success
+    run grep -F "build" "$FAKE_DOCKER_LOG"
+    assert_failure
+}
+
+@test "pal_image_ensure: prints progress note when building" {
+    fake_docker_set_image_absent claude-pal:latest
+    run pal_image_ensure
+    assert_success
+    assert_output --partial "pal: building claude-pal:latest"
+}
