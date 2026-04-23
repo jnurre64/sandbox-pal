@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a problem with claude-pal
+description: Report a problem with sandbox-pal
 labels: [bug]
 body:
   - type: textarea
@@ -15,7 +15,7 @@ body:
       label: Steps to reproduce
       description: Minimal, reliable steps to reproduce the issue.
       placeholder: |
-        1. Run `/claude-pal:pal-implement 42`
+        1. Run `/sandbox-pal:pal-implement 42`
         2. ...
     validations:
       required: true

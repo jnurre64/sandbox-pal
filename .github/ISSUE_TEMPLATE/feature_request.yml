@@ -13,7 +13,7 @@ body:
     id: proposal
     attributes:
       label: Proposed solution
-      description: What should claude-pal do? Sketch the shape of the feature.
+      description: What should sandbox-pal do? Sketch the shape of the feature.
     validations:
       required: true
   - type: textarea
