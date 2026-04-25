@@ -1,6 +1,8 @@
 <p align="center">
-  <img src=".github/icon.png" width="600" alt="sandbox-pal">
+  <img src="claude_pal_sides2_seed8888-transparent-v3.png" width="600" alt="Sandbox Pal">
 </p>
+
+<h1 align="center">Sandbox Pal</h1>
 
 <p align="center">
   <a href="https://github.com/jnurre64/sandbox-pal/actions/workflows/ci.yml"><img src="https://github.com/jnurre64/sandbox-pal/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
