@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="claude_pal_sides2_seed8888-transparent-v3.png" width="600" alt="Sandbox Pal">
+  <img src="claude_pal_sides2_seed8888-transparent-v2.png" width="600" alt="Sandbox Pal">
 </p>
 
 <h1 align="center">Sandbox Pal</h1>
