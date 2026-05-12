@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.6
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
