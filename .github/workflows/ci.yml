@@ -10,7 +10,7 @@ jobs:
     name: shellcheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Run shellcheck
         run: |
           shellcheck $(find . -name '*.sh' -not -path '*/bats/*' -not -path '*/.git/*')
@@ -19,7 +19,7 @@ jobs:
     name: marketplace.json parses
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Validate .claude-plugin/marketplace.json with jq
         run: jq -e . .claude-plugin/marketplace.json > /dev/null
       - name: Validate .claude-plugin/plugin.json with jq
@@ -29,7 +29,7 @@ jobs:
     name: bats
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - name: Run bats tests
