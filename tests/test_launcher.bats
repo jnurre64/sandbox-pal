@@ -96,3 +96,16 @@ teardown() {
     run grep -- "^exec .*-e AGENT_MEMORY_DIR=/home/agent/memory/-home-me-repos-foo .*run-pipeline.sh" "$FAKE_DOCKER_LOG"
     assert_success
 }
+
+@test "pal_launch_sync and pal_launch_async sync PAL_SYNC_SKILLS before exec" {
+    fake_docker_set_running
+    mkdir -p "$HOME/.claude/skills/alpha"; echo "# a" > "$HOME/.claude/skills/alpha/SKILL.md"
+    export PAL_SYNC_SKILLS=alpha
+    GH_TOKEN=ghp_x run pal_launch_sync implement owner/repo 42 /home/me/repos/foo run-test-3
+    assert_success
+    run grep -cE '^cp .*sandbox-pal-workspace:/home/agent/.claude/skills/alpha$' "$FAKE_DOCKER_LOG"; assert_output "1"
+    : > "$FAKE_DOCKER_LOG"
+    GH_TOKEN=ghp_x run pal_launch_async implement owner/repo 42 /home/me/repos/foo run-test-4
+    assert_success
+    run grep -cE '^cp .*sandbox-pal-workspace:/home/agent/.claude/skills/alpha$' "$FAKE_DOCKER_LOG"; assert_output "1"
+}
