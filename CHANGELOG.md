@@ -2,7 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+- **Container runner parity with sandbox-pal-action@04cef68.** `image/opt/pal/lib/claude-runner.sh` now scrubs secrets from every phase envelope and stderr log at capture (`redact_secrets`; `GH_TOKEN` is always present inside the workspace), classifies phase results from `is_error` first so an API error can no longer masquerade as a normal result, surfaces `permission_denials` (in the run log, `status.json` and the PR body), prefers `--json-schema` structured output for the review gates, and exposes the per-phase flag surface: `AGENT_BUDGET_USD[_<PHASE>]` (limitless unless set), `AGENT_EFFORT_<PHASE>`, `AGENT_PERMISSION_MODE_<PHASE>`, `AGENT_MCP_CONFIG` / `AGENT_STRICT_MCP` (`--strict-mcp-config`), `AGENT_SESSION_PERSISTENCE` (default off → `--no-session-persistence`), `AGENT_ADD_DIRS`, `AGENT_MEMORY_DIR`. Phases: `ADVERSARIAL_PLAN`, `IMPLEMENT`, `TEST_FIX`, `POST_IMPL_REVIEW`, `POST_IMPL_RETRY`.
+- **Ledger-based review loop and pre-PR test gate** (re-vendored `review-gates.sh`): findings ride a stamped `.agent-data/review-ledger.json`; the loop runs review → fix → review up to `AGENT_POST_IMPL_REVIEW_MAX_RETRIES` (default 3, was 1) fix sessions; the test gate runs `AGENT_TEST_COMMAND` with up to `AGENT_TEST_GATE_MAX_RETRIES` (default 2) `test-fix` sessions and stops early when a fix session makes no commits. A run that hits the review cap still opens the PR, with a ⚠ header and the outstanding findings, and reports `outcome: review_concerns_unresolved`.
+- **Work-branch preservation:** the implementation branch is pushed before any gate runs, and `setup_worktree` resumes from `origin/agent/issue-<n>` on the next run instead of restarting.
+- **Memory proposals:** phases write durable learnings to `.agent-data/memory-proposals/*.md`; the pipeline copies them to the run directory (`memory_proposals` in `status.json`) and lists them in the PR body. Triage tooling (`/pal-memory`) arrives with the next release.
+- `status.json` gains `review_ledger`, `permission_denials`, `memory_proposals`; `review_concerns_*` are now derived from the ledger.
+- Host-runnable BATS coverage for the container lib (`tests/test_container_lib.bats`, `tests/test_run_pipeline.bats`) with a fake `claude`.
+
 ### Changed
+- `AGENT_IMPL_MAX_RETRIES` is retired (the test gate replaces the inline TDD retry loop); setting it logs a warning.
+- `scripts/diff-upstream.sh` defaults to `~/repos/sandbox-pal-action`; `UPSTREAM.md` now names that project and lists every local modification.
+- `tests/test_container_pipeline.bats` gates on a running, logged-in workspace instead of the removed `CLAUDE_CODE_OAUTH_TOKEN`.
 - **Brand rename:** `claude-pal` → `sandbox-pal`. The plugin, Docker image (`sandbox-pal:latest`), named volumes (`sandbox-pal-claude`, `sandbox-pal-workspace`), host config path (`~/.config/sandbox-pal/`), and marketplace identifiers are all renamed. The `pal-*` command/skill names, `PAL_*` env vars, and per-repo `.pal/` config directory are unchanged. Version stays at 0.5.0.
 - `marketplace.json` now pins `source.ref: "main"` rather than a tag — the `v0.5.0` tag's committed `plugin.json` still says `claude-pal`, so tracking `main` keeps the installed plugin consistent with its manifest until the next release.
 
