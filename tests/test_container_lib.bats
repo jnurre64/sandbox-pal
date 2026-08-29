@@ -247,3 +247,121 @@ _args() { cat "$FAKE_CLAUDE_ARGS"; }
         done
     fi
 }
+
+# ── review gates ────────────────────────────────────────────────
+
+_gate_env() {
+    export AGENT_ADVERSARIAL_PLAN_REVIEW=true AGENT_POST_IMPL_REVIEW=true
+    export AGENT_POST_IMPL_REVIEW_MAX_RETRIES=3 AGENT_TEST_GATE_MAX_RETRIES=2
+    export AGENT_TEST_COMMAND="" AGENT_TEST_SETUP_COMMAND=""
+    export AGENT_ALLOWED_TOOLS_TRIAGE="Read"
+    export AGENT_MODEL_ADVERSARIAL_PLAN="" AGENT_MODEL_POST_IMPL_REVIEW="" AGENT_MODEL_POST_IMPL_RETRY="" AGENT_MODEL_TEST_FIX=""
+    export AGENT_PROMPT_ADVERSARIAL_PLAN="" AGENT_PROMPT_POST_IMPL_REVIEW="" AGENT_PROMPT_POST_IMPL_RETRY="" AGENT_PROMPT_TEST_FIX=""
+    export AGENT_JSON_SCHEMA_ADVERSARIAL_PLAN="" AGENT_JSON_SCHEMA_POST_IMPL_REVIEW="" AGENT_JSON_SCHEMA_POST_IMPL_RETRY=""
+    export AGENT_PLAN_CONTENT="plan" AGENT_ISSUE_TITLE="t" AGENT_ISSUE_BODY="b"
+    STATUS_OUTCOME="failure"; STATUS_FAILURE_REASON=""
+}
+
+_review() { # structured review envelope
+    printf '{"result":"","subtype":"success","is_error":false,"structured_output":%s}' "$1"
+}
+
+@test "Gate A: approved / needs_clarification / unparseable set the right STATUS_* (no labels)" {
+    _gate_env; container_lib_source
+    fake_envelope "$(_review '{"action":"approved"}')"
+    run run_adversarial_plan_review; assert_success
+
+    fake_envelope '{"result":"{\"action\":\"needs_clarification\",\"questions\":[\"why?\"]}","subtype":"success","is_error":false}'
+    run_adversarial_plan_review && fail "expected 1"
+    assert_equal "$STATUS_OUTCOME" "clarification_needed"
+    run cat "$FAKE_GH_LOG"; assert_output --partial "Clarification Needed"; assert_output --partial "- why?"
+
+    STATUS_OUTCOME=failure; STATUS_FAILURE_REASON=""
+    fake_envelope '{"result":"no json here","subtype":"success","is_error":false}'
+    run_adversarial_plan_review && fail "expected 1"
+    assert_equal "$STATUS_FAILURE_REASON" "adversarial_review_could_not_parse"
+    run cat "$FAKE_GH_LOG"; refute_output --partial "agent:"
+}
+
+@test "REGRESSION #101: a ledger stamped with another issue is discarded on init" {
+    _gate_env; container_lib_source
+    mkdir -p "$WORKTREE_DIR/.agent-data"
+    echo '{"issue":99,"cycles":4,"findings":[{"id":"F1","severity":"blocking","description":"old","status":"open","justification":""}]}' > "$WORKTREE_DIR/.agent-data/review-ledger.json"
+    _ledger_init
+    run jq -r '.issue, .cycles, (.findings|length)' "$LEDGER_FILE"
+    assert_line --index 0 "42"; assert_line --index 1 "0"; assert_line --index 2 "0"
+    run cat "$LOG_FILE"; assert_output --partial "Discarding stale review ledger (stamped: 99"
+}
+
+@test "review loop: concerns → retry fixes → approved returns 0 with cycles=2" {
+    _gate_env; container_lib_source
+    fake_claude_enqueue "$(_review '{"action":"concerns","verified_fixed":[],"reopened":[],"findings":[{"severity":"blocking","description":"missing test"}]}')"
+    fake_claude_enqueue "$(_review '{"action":"addressed","dispositions":[{"id":"F1","status":"fixed","note":"added"}]}')" \
+        'echo fix > fix.txt; git add fix.txt; git commit -q -m "fix(review): add test"'
+    fake_claude_enqueue "$(_review '{"action":"approved","verified_fixed":["F1"],"reopened":[],"findings":[]}')"
+    run_post_impl_review_loop "Read,Edit"
+    rc=$?
+    assert_equal "$rc" 0
+    run jq -r '.cycles, .findings[0].status' "$LEDGER_FILE"
+    assert_line --index 0 "2"; assert_line --index 1 "fixed"
+    run git -C "$WORKTREE_DIR" log --format=%s
+    assert_line --partial "review ledger"
+}
+
+@test "review loop: cap reached with blocking findings open returns 2" {
+    _gate_env; container_lib_source
+    export AGENT_POST_IMPL_REVIEW_MAX_RETRIES=1
+    fake_claude_enqueue "$(_review '{"action":"concerns","verified_fixed":[],"reopened":[],"findings":[{"severity":"blocking","description":"bad"}]}')"
+    fake_claude_enqueue "$(_review '{"action":"addressed","dispositions":[]}')"
+    fake_claude_enqueue "$(_review '{"action":"concerns","verified_fixed":[],"reopened":[],"findings":[]}')"
+    run_post_impl_review_loop "Read,Edit" && fail "expected 2"
+    rc=$?
+    assert_equal "$rc" 2
+    run _ledger_outstanding_summary; assert_output --partial "F1"
+}
+
+@test "review loop: API error in the review pass is fail-fast (returns 1, status set, branch preserve attempted)" {
+    _gate_env; container_lib_source
+    fake_envelope '{"is_error":true,"subtype":"success","terminal_reason":"api_error","api_error_status":529,"result":"Overloaded"}'
+    run_post_impl_review_loop "Read,Edit" && fail "expected 1"
+    assert_equal "$?" 1
+    assert_equal "$STATUS_FAILURE_REASON" "post_impl_review_api_error"
+    run cat "$FAKE_GH_LOG"; assert_output --partial "API error"; assert_output --partial "/pal-implement"
+}
+
+@test "review: unparseable output sets post_impl_review_could_not_parse and mentions the schema when one is configured" {
+    _gate_env; container_lib_source
+    export AGENT_JSON_SCHEMA_POST_IMPL_REVIEW="/opt/pal/schemas/post-impl-review.json"
+    fake_envelope '{"result":"narrative only","subtype":"success","is_error":false}'
+    run_post_impl_review_loop "Read" && fail "expected 1"
+    assert_equal "$STATUS_FAILURE_REASON" "post_impl_review_could_not_parse"
+    run cat "$FAKE_GH_LOG"; assert_output --partial "schema/prompt mismatch"
+}
+
+@test "review: legacy {\"concerns\":[...]} response maps to blocking findings" {
+    _gate_env; container_lib_source
+    export AGENT_POST_IMPL_REVIEW_MAX_RETRIES=0
+    fake_envelope '{"result":"{\"action\":\"concerns\",\"concerns\":[\"legacy one\"]}","subtype":"success","is_error":false}'
+    run_post_impl_review_loop "Read" && fail "expected 2"
+    run jq -r '.findings[0].severity + " " + .findings[0].description' "$LEDGER_FILE"
+    assert_output "blocking legacy one"
+}
+
+@test "test gate: green passes; red → fix commits → green passes; no-commit fix session stops early" {
+    _gate_env; container_lib_source
+    export AGENT_TEST_COMMAND="test -f $WORKTREE_DIR/green"
+    touch "$WORKTREE_DIR/green"
+    run run_test_gate "Read,Edit" "title"; assert_success
+
+    rm "$WORKTREE_DIR/green"
+    fake_claude_enqueue '{"result":"fixed","subtype":"success","is_error":false}' 'touch green; git add -f green; git commit -q -m "fix(tests): green"'
+    run_test_gate "Read,Edit" "title"
+    assert_equal "$?" 0
+
+    rm "$WORKTREE_DIR/green"; git -C "$WORKTREE_DIR" commit -q -am "remove green"
+    fake_envelope '{"result":"cannot fix","subtype":"success","is_error":false}'
+    run_test_gate "Read,Edit" "title" && fail "expected 1"
+    assert_equal "$STATUS_FAILURE_REASON" "tests_failed_after_1_fix_sessions"
+    run cat "$LOG_FILE"; assert_output --partial "made no commits"
+    run cat "$FAKE_GH_LOG"; assert_output --partial "Test Failure (Pre-PR Gate)"; refute_output --partial "agent:failed"
+}
