@@ -12,6 +12,34 @@ load_prompt() {
     cat "$path"
 }
 
+# ─── Redact secrets from phase output ────────────────────────────
+# Applied at the capture point — before the envelope or the stderr log
+# reaches any log line, parse, file, or comment. Inside the workspace
+# container GH_TOKEN is always present (lib/launcher.sh injects it) and
+# phase output is posted to public issues/PRs. (upstream #103)
+redact_secrets() {
+    local text
+    text=$(cat)
+    text=$(printf '%s' "$text" | sed -E \
+        -e 's/github_pat_[A-Za-z0-9_]{20,}/[REDACTED_TOKEN]/g' \
+        -e 's/gh[pousr]_[A-Za-z0-9]{20,}/[REDACTED_TOKEN]/g' \
+        -e 's/([Aa]uthorization:[[:space:]]*([Tt]oken|[Bb]earer|[Bb]asic)[[:space:]]+)[^[:space:]"'\'']+/\1[REDACTED]/g')
+    local var_name var_value
+    while read -r var_name; do
+        case "$var_name" in
+            *TOKEN*|*SECRET*|*PASSWORD*|*API_KEY*|*APIKEY*|*CREDENTIAL*)
+                var_value="${!var_name-}"
+                # Short values are skipped: replacing a 2-char password
+                # everywhere it appears would mangle ordinary text.
+                if [ "${#var_value}" -ge 8 ]; then
+                    text="${text//"$var_value"/[REDACTED:${var_name}]}"
+                fi
+                ;;
+        esac
+    done < <(compgen -e)
+    printf '%s\n' "$text"
+}
+
 run_claude() {
     local prompt="$1"
     local allowed_tools="${2:-Read,Write,Edit,Bash(git *),Bash(ls *)}"
@@ -38,11 +66,16 @@ run_claude() {
     local timeout="${AGENT_TIMEOUT:-3600}"
     local stdout_log
     stdout_log="$STATUS_DIR/claude-stdout-$(date +%s).log"
-    timeout "$timeout" claude "${claude_args[@]}" 2>"$stderr_log" | tee "$stdout_log"
-    local ec="${PIPESTATUS[0]}"
+    local raw_output ec=0
+    raw_output=$(timeout "$timeout" claude "${claude_args[@]}" 2>"$stderr_log") || ec=$?
+
+    # Scrub at the point of capture (upstream #103).
+    redact_secrets < "$stderr_log" > "${stderr_log}.tmp" && mv "${stderr_log}.tmp" "$stderr_log"
+    printf '%s\n' "$raw_output" | redact_secrets | tee "$stdout_log"
+
     if [ "$ec" -ne 0 ]; then
         log "claude-runner: claude exited with code $ec (stderr: $(head -10 "$stderr_log")) (stdout first 500: $(head -c 500 "$stdout_log"))"
-        echo '{"result":"claude timed out or errored","error":true}'
+        echo '{"result":"claude timed out or errored (exit code '"$ec"')","error":true}'
     fi
 }
 

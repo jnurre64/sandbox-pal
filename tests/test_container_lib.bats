@@ -52,3 +52,29 @@ teardown() { container_lib_teardown; }
     run parse_claude_output '{"is_error":false,"subtype":"success","result":"done"}'
     assert_output "done"
 }
+
+# ── redaction ───────────────────────────────────────────────────
+
+@test "REGRESSION #103: redact_secrets scrubs env secrets and token-shaped strings" {
+    # Two passes: token-shaped patterns first (github_pat_/gh?_ /Authorization),
+    # then the value of every exported *TOKEN*/*SECRET*/... variable >= 8 chars.
+    export GH_TOKEN="not-token-shaped-but-secret-value-1234"
+    run bash -c ". \"$LIB_DIR/claude-runner.sh\"; printf 'token=%s and ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ12 and Authorization: Bearer abc.def\n' \"\$GH_TOKEN\" | redact_secrets"
+    assert_output "token=[REDACTED:GH_TOKEN] and [REDACTED_TOKEN] and Authorization: Bearer [REDACTED]"
+}
+
+@test "REGRESSION #103: run_claude redacts the envelope and the stderr log" {
+    container_lib_source
+    export GH_TOKEN="not-token-shaped-but-secret-value-1234"
+    fake_envelope "{\"result\":\"leaked $GH_TOKEN here\",\"subtype\":\"success\",\"is_error\":false}"
+    export FAKE_CLAUDE_STDERR="stderr says $GH_TOKEN"
+    run run_claude "prompt" "Read" "" "" "IMPLEMENT"
+    assert_success
+    refute_output --partial "$GH_TOKEN"
+    assert_output --partial "[REDACTED:GH_TOKEN]"
+    run cat "$STATUS_DIR"/claude-stderr-*.log
+    refute_output --partial "$GH_TOKEN"
+    assert_output --partial "[REDACTED:GH_TOKEN]"
+    run cat "$STATUS_DIR"/claude-stdout-*.log
+    refute_output --partial "$GH_TOKEN"
+}
