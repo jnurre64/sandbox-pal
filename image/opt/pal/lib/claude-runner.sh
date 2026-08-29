@@ -151,7 +151,10 @@ _resolve_memory_dir() {
 load_shared_memory() {
     local mem_dir
     mem_dir=$(_resolve_memory_dir)
-    [ -n "$mem_dir" ] && [ -f "${mem_dir}/MEMORY.md" ] || { echo ""; return 0; }
+    if [ -z "$mem_dir" ] || [ ! -f "${mem_dir}/MEMORY.md" ]; then
+        echo ""
+        return 0
+    fi
     echo "# Shared Project Memory (from interactive sessions)
 The following memory was accumulated from working on this project. Use it for context but do NOT attempt to update memory files — the memory directory is read-only to you. If you learn something durable, write a proposal under .agent-data/memory-proposals/ as described in your task prompt.
 The index below points at files in ${mem_dir}/ — when a pointer is relevant to your task, Read that file for the full memory.
