@@ -8,7 +8,7 @@ setup_worktree() {
     local number="$2"     # issue or PR number
     local event_type="$3" # implement or revise
 
-    local repo_cache="/home/agent/.cache/repos/$repo"
+    local repo_cache="${PAL_REPO_CACHE:-$HOME/.cache/repos}/$repo"
     local branch_name="agent/issue-${number}"
 
     # For revise, branch_name comes from the PR (filled in Task 6.1); for implement, we create it fresh
@@ -34,10 +34,24 @@ setup_worktree() {
         git -C "$repo_cache" worktree add "$WORKTREE_DIR" "$pr_branch"
         BRANCH_NAME="$pr_branch"
     else
-        log "worktree: creating worktree on $branch_name from origin/main"
-        git -C "$repo_cache" worktree add -B "$branch_name" "$WORKTREE_DIR" origin/main
+        # A previous run may have pushed the work branch before a gate
+        # failed (preserve_branch). Resume from it instead of restarting.
+        if git -C "$repo_cache" show-ref --verify --quiet "refs/remotes/origin/$branch_name"; then
+            log "worktree: resuming from origin/$branch_name"
+            git -C "$repo_cache" worktree add -B "$branch_name" "$WORKTREE_DIR" "origin/$branch_name"
+        else
+            log "worktree: creating worktree on $branch_name from origin/main"
+            git -C "$repo_cache" worktree add -B "$branch_name" "$WORKTREE_DIR" origin/main
+        fi
         BRANCH_NAME="$branch_name"
     fi
+
+    # Run-scoped scratch (ledger, denials log, memory proposals) must never
+    # be committed by a phase; the ledger is added with -f deliberately.
+    local exclude_file
+    exclude_file="$(git -C "$WORKTREE_DIR" rev-parse --git-path info/exclude)"
+    mkdir -p "$(dirname "$exclude_file")"
+    grep -qx '.agent-data/' "$exclude_file" 2>/dev/null || echo '.agent-data/' >> "$exclude_file"
 
     # Configure git identity inside the worktree
     local bot_name="${AGENT_GIT_USER_NAME:-sandbox-pal}"

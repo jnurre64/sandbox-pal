@@ -3,8 +3,10 @@
 # (STATUS_OUTCOME and STATUS_FAILURE_REASON are set here and read by the
 # sourcing run-pipeline.sh when it writes status.json on exit.)
 # ─── Review gates: adversarial plan review + post-implementation review ──
-# Provides: run_adversarial_plan_review, run_post_impl_review,
-#           handle_post_impl_review_retry
+# Vendored from jnurre64/sandbox-pal-action scripts/lib/review-gates.sh @04cef68.
+# Local edits (see UPSTREAM.md): set_label → STATUS_* writes; notify dropped;
+# label/re-dispatch wording → sandbox-pal wording. Nothing else.
+# Provides: run_adversarial_plan_review, run_test_gate, run_post_impl_review, run_post_impl_retry_session, run_post_impl_review_loop, ledger helpers
 
 # ─── JSON extraction helper ─────────────────────────────────────
 # Claude sometimes prefixes a narrative preamble or wraps the JSON in
@@ -55,6 +57,105 @@ _extract_review_json() {
     '
 }
 
+# ─── Review ledger ──────────────────────────────────────────────
+# A structured findings file that rides the work branch across review
+# cycles. Path: ${WORKTREE_DIR}/.agent-data/review-ledger.json
+# Schema: {"issue": N, "cycles": N, "findings": [{"id","severity","description","status","justification"}]}
+#   severity: "blocking" | "non-blocking"
+#   status:   "open" | "fixed" | "rejected"
+LEDGER_FILE=""
+
+_ledger_init() {
+    LEDGER_FILE="${WORKTREE_DIR}/.agent-data/review-ledger.json"
+    mkdir -p "$(dirname "$LEDGER_FILE")"
+    local current_issue="${NUMBER:-}"
+    if [ -f "$LEDGER_FILE" ] && jq -e '.findings' "$LEDGER_FILE" >/dev/null 2>&1; then
+        # The ledger rides the work branch, so a branch cut after a merge
+        # inherits the previous PR's ledger. One stamped with another issue,
+        # or with no stamp at all, is a stale leftover — not history.
+        if jq -e --arg n "$current_issue" \
+            '.issue != null and (.issue | tostring) == $n' "$LEDGER_FILE" >/dev/null 2>&1; then
+            return 0
+        fi
+        log "Discarding stale review ledger (stamped: $(jq -r '.issue // "unstamped"' "$LEDGER_FILE"); current issue: ${current_issue:-unset})"
+    fi
+    jq -n --arg issue "$current_issue" \
+        '{issue: ($issue | tonumber? // $issue), cycles: 0, findings: []}' > "$LEDGER_FILE"
+}
+
+# Merge one review pass's parsed JSON output into the ledger.
+# $1 = {"action":..., "verified_fixed":["F1"], "reopened":["F2"], "findings":[{"severity","description"}]}
+_ledger_merge_review() {
+    local review_json="$1"
+    local tmp="${LEDGER_FILE}.tmp"
+    jq --argjson r "$review_json" '
+        .cycles += 1
+        | .findings |= map(
+            .id as $id
+            | if ((($r.verified_fixed // []) | index($id)) != null) and .status == "open"
+              then .status = "fixed"
+              elif ((($r.reopened // []) | index($id)) != null)
+              then .status = "open"
+              else . end)
+        | (.findings | length) as $base
+        | .findings += ((($r.findings // []) | to_entries) | map(
+            {id: ("F" + (($base + .key + 1) | tostring)),
+             severity: (if .value.severity == "blocking" then "blocking" else "non-blocking" end),
+             description: (.value.description // ""),
+             status: "open",
+             justification: ""}))
+    ' "$LEDGER_FILE" > "$tmp" && mv "$tmp" "$LEDGER_FILE"
+}
+
+# Apply a retry session's dispositions to open findings.
+# $1 = [{"id":"F1","status":"fixed"|"rejected","note":"..."}]
+_ledger_apply_dispositions() {
+    local dispositions_json="$1"
+    local tmp="${LEDGER_FILE}.tmp"
+    jq --argjson d "$dispositions_json" '
+        .findings |= map(
+            .id as $id
+            | ((($d // []) | map(select(.id == $id))) | first) as $m
+            | if $m != null and .status == "open"
+                   and ($m.status == "fixed" or $m.status == "rejected")
+              then . + {status: $m.status, justification: ($m.note // "")}
+              else . end)
+    ' "$LEDGER_FILE" > "$tmp" && mv "$tmp" "$LEDGER_FILE"
+}
+
+_ledger_blocking_open_count() {
+    jq -r '[.findings[] | select(.severity == "blocking" and .status == "open")] | length' "$LEDGER_FILE"
+}
+
+_ledger_pr_summary() {
+    jq -r '
+        "**Review cycles:** \(.cycles)\n\n" +
+        (if (.findings | length) == 0
+         then "_No findings recorded._"
+         else ([.findings[] |
+            "- **\(.id)** [\(.severity) / \(.status)]: \(.description)"
+            + (if (.justification // "") != "" then "\n  - justification: \(.justification)" else "" end)]
+            | join("\n"))
+         end)
+    ' "$LEDGER_FILE"
+}
+
+_ledger_outstanding_summary() {
+    jq -r '[.findings[] | select(.severity == "blocking" and .status == "open")
+            | "- **\(.id)**: \(.description)"] | join("\n")' "$LEDGER_FILE"
+}
+
+# Commit ONLY the ledger file (it may sit under a gitignored .agent-data/).
+# Best-effort by design (a ledger commit failure must never abort the
+# review loop) — but a silent `|| true` made every failure invisible.
+_ledger_commit() {
+    local msg="$1"
+    git -C "$WORKTREE_DIR" add -f "$LEDGER_FILE" 2>/dev/null \
+        || log "WARN: ledger add failed for ${LEDGER_FILE}"
+    git -C "$WORKTREE_DIR" commit -m "chore(agent): review ledger — ${msg}" -- "$LEDGER_FILE" 2>/dev/null \
+        || log "WARN: ledger commit failed (${msg})"
+}
+
 # ─── Gate A: Adversarial Plan Review ────────────────────────────
 # Runs a fresh Claude session to check the plan against the issue.
 # Returns 0 to proceed, 1 to halt implementation.
@@ -68,10 +169,12 @@ run_adversarial_plan_review() {
 
     log "Running adversarial plan review..."
     local prompt
-    prompt=$(load_prompt "adversarial-plan" "${AGENT_PROMPT_ADVERSARIAL_PLAN:-}")
+    prompt=$(load_prompt "adversarial-plan" "${AGENT_PROMPT_ADVERSARIAL_PLAN}")
 
     local result
-    result=$(run_claude "$prompt" "$AGENT_ALLOWED_TOOLS_TRIAGE" "$AGENT_MODEL_ADVERSARIAL_PLAN")
+    set_heartbeat "adversarial-plan"
+    result=$(run_claude "$prompt" "$AGENT_ALLOWED_TOOLS_TRIAGE" "$AGENT_MODEL_ADVERSARIAL_PLAN" "$AGENT_JSON_SCHEMA_ADVERSARIAL_PLAN" "ADVERSARIAL_PLAN")
+    log_permission_denials "$result" "adversarial-plan"
 
     local claude_output
     claude_output=$(parse_claude_output "$result")
@@ -81,7 +184,8 @@ run_adversarial_plan_review() {
     # preamble/postamble, or wrapped in a markdown fence. _extract_review_json
     # returns the last balanced {...} block so jq lookups succeed in all cases.
     local json_block action
-    json_block=$(_extract_review_json "$claude_output")
+    json_block=$(get_structured_output "$result")
+    [ -z "$json_block" ] && json_block=$(_extract_review_json "$claude_output")
     set +e
     action=$(printf '%s' "$json_block" | jq -r '.action // empty' 2>/dev/null || echo "")
     set -e
@@ -126,14 +230,12 @@ ${questions}
 
 Please respond to these questions. Implementation will resume after clarification." 2>/dev/null || true
 
-            # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
             STATUS_OUTCOME="clarification_needed"
             return 1
             ;;
         *)
             log "Adversarial plan review: could not parse response"
             log "Raw output: $claude_output"
-            # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
             STATUS_OUTCOME="failure"
             STATUS_FAILURE_REASON="adversarial_review_could_not_parse"
             gh issue comment "$NUMBER" --repo "$REPO" \
@@ -143,129 +245,252 @@ Please respond to these questions. Implementation will resume after clarificatio
     esac
 }
 
-# ─── Gate B: Post-Implementation Review ─────────────────────────
-# Runs a fresh Claude session to check the diff against the issue/plan.
-# Returns 0 to proceed, 1 if concerns found.
-# Side effects: sets POST_IMPL_REVIEW_CONCERNS on failure.
-POST_IMPL_REVIEW_CONCERNS=""
+# ─── Pre-PR test gate with bounded fix sessions ─────────────────
+# Runs AGENT_TEST_COMMAND in the worktree. On failure, up to
+# AGENT_TEST_GATE_MAX_RETRIES fresh Claude fix sessions are fed the
+# failing output (AGENT_TEST_OUTPUT / AGENT_TEST_EXIT_CODE) and the
+# tests are re-run after each. A fix session that produces no new
+# commits ends the loop early: nothing changed, so re-running the same
+# command would fail the same way (issue #73 — e.g. the test command
+# itself is broken in repo config, which no in-repo fix can cure).
+# On final failure the work branch is pushed (preserve_branch), the
+# failure comment links it, STATUS_FAILURE_REASON is set, and 1 is returned.
+# Returns 0 when the gate passes or is disabled.
+#
+# NOTE: tests extract this function body with
+# `sed -n '/^run_test_gate()/,/^}/p'` — keep any column-0 `}` out of
+# the body before the function's real closing brace.
+run_test_gate() {
+    local impl_tools="$1"
+    # shellcheck disable=SC2034  # kept for signature parity with upstream (notify dropped)
+    local issue_title="$2"
 
-run_post_impl_review() {
-    if [ "${AGENT_POST_IMPL_REVIEW}" != "true" ]; then
-        log "Post-implementation review: skipped (disabled)"
+    if [ -z "$AGENT_TEST_COMMAND" ]; then
         return 0
     fi
 
-    log "Running post-implementation review..."
-    local prompt
-    prompt=$(load_prompt "post-impl-review" "${AGENT_PROMPT_POST_IMPL_REVIEW:-}")
-
-    local result
-    result=$(run_claude "$prompt" "$AGENT_ALLOWED_TOOLS_TRIAGE" "$AGENT_MODEL_POST_IMPL_REVIEW")
-
-    local claude_output
-    claude_output=$(parse_claude_output "$result")
-    log "Post-impl review result: ${claude_output:0:500}"
-
-    local json_block action
-    json_block=$(_extract_review_json "$claude_output")
-    set +e
-    action=$(printf '%s' "$json_block" | jq -r '.action // empty' 2>/dev/null || echo "")
-    set -e
-
-    case "$action" in
-        approved)
-            log "Post-implementation review: approved"
-            return 0
-            ;;
-        concerns)
-            log "Post-implementation review: concerns found"
-            POST_IMPL_REVIEW_CONCERNS=$(printf '%s' "$json_block" | jq -r '.concerns[]' 2>/dev/null | sed 's/^/- /')
-            return 1
-            ;;
-        *)
-            log "Post-implementation review: could not parse response"
-            log "Raw output: $claude_output"
-            # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
-            STATUS_OUTCOME="failure"
-            STATUS_FAILURE_REASON="post_impl_review_could_not_parse"
-            gh issue comment "$NUMBER" --repo "$REPO" \
-                --body "Agent post-implementation review could not parse its output. Please check the branch and create a PR manually if the implementation looks correct." 2>/dev/null || true
-            return 1
-            ;;
-    esac
-}
-
-# ─── Gate B Retry: Address Concerns and Re-Review ───────────────
-# Called when run_post_impl_review returns 1 (concerns found).
-# Runs a new implementation session to fix concerns, then re-reviews.
-# Returns 0 if retry succeeds, 1 if it fails.
-# Side effects: sets REVIEW_RETRY_CONCERNS, REVIEW_RETRY_COMMITS on success.
-export REVIEW_RETRY_CONCERNS=""
-export REVIEW_RETRY_COMMITS=""
-
-handle_post_impl_review_retry() {
-    local impl_tools="$1"
-
-    if [ "${AGENT_POST_IMPL_REVIEW_MAX_RETRIES}" -eq 0 ]; then
-        log "Post-impl review retry: disabled (MAX_RETRIES=0)"
-        # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
-        STATUS_OUTCOME="failure"
-        STATUS_FAILURE_REASON="post_impl_review_concerns_retries_disabled"
-        gh issue comment "$NUMBER" --repo "$REPO" --body "## Post-Implementation Review: Concerns Found
-
-The post-implementation review identified concerns:
-
-${POST_IMPL_REVIEW_CONCERNS}
-
-Retries are disabled. Please review the branch manually." 2>/dev/null || true
-        return 1
+    # Validate the cap like AGENT_POST_IMPL_REVIEW_MAX_RETRIES: a
+    # non-integer would error the -ge comparison on every iteration.
+    local max_retries="$AGENT_TEST_GATE_MAX_RETRIES"
+    if ! [[ "$max_retries" =~ ^[0-9]+$ ]]; then
+        log "WARN: AGENT_TEST_GATE_MAX_RETRIES='${max_retries}' is not a non-negative integer; using 2"
+        max_retries=2
     fi
 
-    log "Post-impl review retry: attempting to address concerns..."
-
-    # Capture pre-retry state
-    local retry_start_sha
-    retry_start_sha=$(git -C "$WORKTREE_DIR" rev-parse HEAD 2>/dev/null || echo "")
-
-    # Export concerns for the retry prompt
-    export AGENT_REVIEW_CONCERNS="$POST_IMPL_REVIEW_CONCERNS"
-
-    local prompt
-    prompt=$(load_prompt "post-impl-retry" "${AGENT_PROMPT_POST_IMPL_RETRY:-}")
-
-    local result
-    result=$(run_claude "$prompt" "$impl_tools" "$AGENT_MODEL_POST_IMPL_RETRY")
-
-    local claude_output
-    claude_output=$(parse_claude_output "$result")
-    log "Retry output: ${claude_output:0:500}"
-
-    # Capture post-retry state
-    local retry_end_sha
-    retry_end_sha=$(git -C "$WORKTREE_DIR" rev-parse HEAD 2>/dev/null || echo "")
-
-    # Re-run tests if configured
-    if [ -n "${AGENT_TEST_COMMAND:-}" ]; then
+    local attempt=0 test_output test_exit stop_reason=""
+    while true; do
         if [ -n "${AGENT_TEST_SETUP_COMMAND:-}" ]; then
+            log "Running test setup: $AGENT_TEST_SETUP_COMMAND"
             (cd "$WORKTREE_DIR" && eval "$AGENT_TEST_SETUP_COMMAND") 2>&1 || log "WARN: Test setup command exited with non-zero (continuing)"
         fi
 
-        log "Post-impl retry: re-running tests..."
-        local test_output test_exit
+        log "Running pre-PR test gate (attempt $((attempt + 1)))..."
         set +e
         test_output=$(cd "$WORKTREE_DIR" && eval "$AGENT_TEST_COMMAND" 2>&1)
         test_exit=$?
         set -e
 
+        if [ "$test_exit" -eq 0 ]; then
+            if [ "$attempt" -gt 0 ]; then
+                log "Pre-PR test gate green after ${attempt} fix session(s)"
+            fi
+            return 0
+        fi
+
+        if [ "$attempt" -ge "$max_retries" ]; then
+            stop_reason="fix-session cap (${max_retries}) reached"
+            break
+        fi
+
+        attempt=$((attempt + 1))
+        log "Pre-PR test gate failed (exit ${test_exit}); starting fix session ${attempt}/${max_retries}..."
+
+        export AGENT_TEST_OUTPUT
+        AGENT_TEST_OUTPUT=$(echo "$test_output" | tail -100)
+        export AGENT_TEST_EXIT_CODE="$test_exit"
+
+        local before_sha
+        before_sha=$(git -C "$WORKTREE_DIR" rev-parse HEAD 2>/dev/null || echo "")
+
+        local prompt result
+        prompt=$(load_prompt "test-fix" "${AGENT_PROMPT_TEST_FIX}")
+        set_heartbeat "test-fix-${attempt}"
+        result=$(run_claude "$prompt" "$impl_tools" "$AGENT_MODEL_TEST_FIX" "" "TEST_FIX")
+        log_permission_denials "$result" "test-fix"
+        log "Test-fix session output: $(parse_claude_output "$result" | head -c 300)"
+
+        local after_sha
+        after_sha=$(git -C "$WORKTREE_DIR" rev-parse HEAD 2>/dev/null || echo "")
+        if [ "$after_sha" = "$before_sha" ]; then
+            stop_reason="fix session ${attempt} made no commits (failure likely not fixable from inside the repo, e.g. a broken test command in config)"
+            break
+        fi
+    done
+
+    log "Pre-PR test gate FAILED: ${stop_reason}"
+    preserve_branch || true
+    gh issue comment "$NUMBER" --repo "$REPO" \
+        --body "## Test Failure (Pre-PR Gate)
+
+Tests failed after implementation (${stop_reason}).
+
+**Your work is safe:** the implementation commits are pushed to the \`${BRANCH_NAME}\` branch. Re-running \`/pal-implement\` resumes from that branch instead of starting over.
+$(denials_report_section)
+
+<details><summary>Test output (last 100 lines)</summary>
+
+\`\`\`
+$(echo "$test_output" | tail -100)
+\`\`\`
+</details>" 2>/dev/null || true
+    STATUS_OUTCOME="failure"
+    STATUS_FAILURE_REASON="tests_failed_after_${attempt}_fix_sessions"
+    return 1
+}
+
+# ─── Gate B: Post-Implementation Review (one pass) ──────────────
+# Runs a fresh Claude session reviewing the diff against issue/plan/ledger.
+# Sets POST_IMPL_REVIEW_JSON (action=approved|concerns) and returns 0 on
+# any parseable output; returns 1 only on parse failure (labels + comments).
+POST_IMPL_REVIEW_JSON=""
+
+run_post_impl_review() {
+    if [ "${AGENT_POST_IMPL_REVIEW}" != "true" ]; then
+        log "Post-implementation review: skipped (disabled)"
+        POST_IMPL_REVIEW_JSON='{"action":"approved","findings":[]}'
+        return 0
+    fi
+
+    log "Running post-implementation review..."
+    export AGENT_REVIEW_LEDGER
+    AGENT_REVIEW_LEDGER=$(cat "$LEDGER_FILE" 2>/dev/null || echo '{"cycles":0,"findings":[]}')
+
+    local prompt
+    prompt=$(load_prompt "post-impl-review" "${AGENT_PROMPT_POST_IMPL_REVIEW}")
+
+    local result
+    set_heartbeat "post-impl-review"
+    result=$(run_claude "$prompt" "$AGENT_ALLOWED_TOOLS_TRIAGE" "$AGENT_MODEL_POST_IMPL_REVIEW" "$AGENT_JSON_SCHEMA_POST_IMPL_REVIEW" "POST_IMPL_REVIEW")
+    log_permission_denials "$result" "post-impl-review"
+
+    local claude_output
+    claude_output=$(parse_claude_output "$result")
+    log "Post-impl review result: ${claude_output:0:500}"
+
+    if [ "$(classify_claude_result "$result")" = "fail_fast" ]; then
+        log "Post-implementation review: API error (fail-fast)"
+        preserve_branch || true
+        STATUS_OUTCOME="failure"
+        STATUS_FAILURE_REASON="post_impl_review_api_error"
+        gh issue comment "$NUMBER" --repo "$REPO" \
+            --body "Agent post-implementation review hit an API error (${claude_output}). No later phase can recover this — re-run \`/pal-implement\` once the API issue is resolved. The implementation commits are pushed to the \`${BRANCH_NAME}\` branch." 2>/dev/null || true
+        return 1
+    fi
+
+    local json_block action
+    json_block=$(get_structured_output "$result")
+    [ -z "$json_block" ] && json_block=$(_extract_review_json "$claude_output")
+    set +e
+    action=$(printf '%s' "$json_block" | jq -r '.action // empty' 2>/dev/null || echo "")
+    set -e
+
+    case "$action" in
+        approved|concerns)
+            # Legacy compatibility: a pre-ledger custom
+            # AGENT_PROMPT_POST_IMPL_REVIEW override may still emit the
+            # old {"action":"concerns","concerns":["..."]} schema instead
+            # of the ledger-era .findings array. _ledger_merge_review only
+            # reads .findings, so without this translation a legacy
+            # "concerns" response would merge as zero findings and the
+            # loop would declare the review clean. Map each legacy concern
+            # string to a blocking finding when .findings is absent/empty.
+            json_block=$(printf '%s' "$json_block" | jq -c '
+                if .action == "concerns"
+                   and ((.findings // []) | length) == 0
+                   and ((.concerns // []) | length) > 0
+                then .findings = [(.concerns // [])[] | {severity: "blocking", description: .}]
+                else . end
+            ' 2>/dev/null)
+            POST_IMPL_REVIEW_JSON=$(printf '%s' "$json_block" | jq -c '.' 2>/dev/null)
+            log "Post-implementation review: $action"
+            return 0
+            ;;
+        *)
+            # A missing structured_output with a schema configured is a
+            # schema/prompt mismatch, not an agent failure — operators
+            # respond to those differently (#96).
+            local parse_note=""
+            if [ -n "${AGENT_JSON_SCHEMA_POST_IMPL_REVIEW:-}" ]; then
+                parse_note=" A structured-output schema was configured but the envelope carried no validated object — likely a schema/prompt mismatch (check AGENT_JSON_SCHEMA_POST_IMPL_REVIEW against the review prompt's output contract), not an implementation failure."
+            fi
+            log "Post-implementation review: could not parse response${parse_note}"
+            log "Raw output: $claude_output"
+            preserve_branch || true
+            STATUS_OUTCOME="failure"
+            STATUS_FAILURE_REASON="post_impl_review_could_not_parse"
+            gh issue comment "$NUMBER" --repo "$REPO" \
+                --body "Agent post-implementation review could not parse its output.${parse_note} The implementation commits are pushed to the \`${BRANCH_NAME}\` branch — check it and create a PR manually if the implementation looks correct." 2>/dev/null || true
+            return 1
+            ;;
+    esac
+}
+
+# ─── Gate B retry session (one fix pass) ────────────────────────
+RETRY_DISPOSITIONS_JSON="[]"
+
+run_post_impl_retry_session() {
+    local impl_tools="$1"
+    log "Review loop: retry session addressing open blocking findings..."
+
+    export AGENT_REVIEW_LEDGER
+    AGENT_REVIEW_LEDGER=$(cat "$LEDGER_FILE")
+    # Legacy env for custom prompt overrides that predate the ledger
+    export AGENT_REVIEW_CONCERNS
+    AGENT_REVIEW_CONCERNS=$(jq -r '[.findings[] | select(.severity == "blocking" and .status == "open")
+        | "- \(.id): \(.description)"] | join("\n")' "$LEDGER_FILE")
+
+    local prompt
+    prompt=$(load_prompt "post-impl-retry" "${AGENT_PROMPT_POST_IMPL_RETRY}")
+
+    local result
+    set_heartbeat "post-impl-retry"
+    result=$(run_claude "$prompt" "$impl_tools" "$AGENT_MODEL_POST_IMPL_RETRY" "$AGENT_JSON_SCHEMA_POST_IMPL_RETRY" "POST_IMPL_RETRY")
+    log_permission_denials "$result" "post-impl-retry"
+
+    local claude_output
+    claude_output=$(parse_claude_output "$result")
+    log "Retry output: ${claude_output:0:500}"
+
+    if [ "$(classify_claude_result "$result")" = "fail_fast" ]; then
+        log "Review-loop retry session: API error (fail-fast)"
+        preserve_branch || true
+        STATUS_OUTCOME="failure"
+        STATUS_FAILURE_REASON="post_impl_retry_api_error"
+        gh issue comment "$NUMBER" --repo "$REPO" \
+            --body "Agent review-loop retry session hit an API error (${claude_output}). No later phase can recover this — re-run \`/pal-implement\` once the API issue is resolved. The work so far is pushed to the \`${BRANCH_NAME}\` branch." 2>/dev/null || true
+        return 1
+    fi
+
+    # Re-run tests if configured (a retry must never ship a red suite)
+    if [ -n "$AGENT_TEST_COMMAND" ]; then
+        if [ -n "${AGENT_TEST_SETUP_COMMAND:-}" ]; then
+            (cd "$WORKTREE_DIR" && eval "$AGENT_TEST_SETUP_COMMAND") 2>&1 || log "WARN: Test setup command exited with non-zero (continuing)"
+        fi
+        log "Review loop retry: re-running tests..."
+        local test_output test_exit
+        set +e
+        test_output=$(cd "$WORKTREE_DIR" && eval "$AGENT_TEST_COMMAND" 2>&1)
+        test_exit=$?
+        set -e
         if [ "$test_exit" -ne 0 ]; then
-            log "Post-impl retry: tests failed after retry"
-            # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
+            log "Review loop retry: tests failed after retry"
+            preserve_branch || true
             STATUS_OUTCOME="failure"
             STATUS_FAILURE_REASON="post_impl_retry_tests_failed"
             gh issue comment "$NUMBER" --repo "$REPO" \
                 --body "## Post-Implementation Review: Retry Failed
 
-Tests failed after addressing review concerns.
+Tests failed after addressing review findings. The work (including retry commits) is pushed to the \`${BRANCH_NAME}\` branch.
 
 <details><summary>Test output (last 100 lines)</summary>
 
@@ -277,30 +502,73 @@ $(echo "$test_output" | tail -100)
         fi
     fi
 
-    # Re-run post-implementation review
-    log "Post-impl retry: re-running review..."
-    if run_post_impl_review; then
-        log "Post-impl retry: review passed on retry"
-        # Export for use by handle_post_implementation in common.sh
-        export REVIEW_RETRY_CONCERNS="${AGENT_REVIEW_CONCERNS}"
-        export REVIEW_RETRY_COMMITS="${retry_start_sha:0:7}..${retry_end_sha:0:7}"
-        return 0
+    local json_block action
+    json_block=$(get_structured_output "$result")
+    [ -z "$json_block" ] && json_block=$(_extract_review_json "$claude_output")
+    set +e
+    action=$(printf '%s' "$json_block" | jq -r '.action // empty' 2>/dev/null || echo "")
+    set -e
+    if [ "$action" = "addressed" ]; then
+        RETRY_DISPOSITIONS_JSON=$(printf '%s' "$json_block" | jq -c '.dispositions // []' 2>/dev/null || echo "[]")
     else
-        log "Post-impl retry: review still has concerns after retry"
-        # No label state machine in sandbox-pal; status is written to status.json by run-pipeline.sh
-        STATUS_OUTCOME="failure"
-        STATUS_FAILURE_REASON="post_impl_retry_concerns_persist"
-        gh issue comment "$NUMBER" --repo "$REPO" --body "## Post-Implementation Review: Concerns Persist After Retry
-
-The post-implementation review still has concerns after the agent attempted to address them.
-
-**Original concerns:**
-${AGENT_REVIEW_CONCERNS}
-
-**Remaining concerns:**
-${POST_IMPL_REVIEW_CONCERNS}
-
-Please review the branch manually." 2>/dev/null || true
-        return 1
+        RETRY_DISPOSITIONS_JSON="[]"
+        log "Retry session output had no parseable dispositions; findings stay open for the next review pass"
     fi
+    return 0
+}
+
+# ─── Gate B: capped review loop ────────────────────────────────────
+# review → (fix → review)* until no open blocking findings, capped at
+# AGENT_POST_IMPL_REVIEW_MAX_RETRIES fix sessions.
+# Returns: 0 = clean, 1 = hard failure (already labeled/commented),
+#          2 = cap reached with blocking findings still open.
+run_post_impl_review_loop() {
+    local impl_tools="$1"
+
+    if [ "${AGENT_POST_IMPL_REVIEW}" != "true" ]; then
+        log "Post-implementation review loop: skipped (disabled)"
+        return 0
+    fi
+
+    # A non-integer AGENT_POST_IMPL_REVIEW_MAX_RETRIES would make
+    # `[ "$retries" -ge "$max_retries" ]` below error out (exit non-zero,
+    # i.e. never true) on every iteration, so the cap would never trip and
+    # the loop would run forever. Validate up front and fall back to the
+    # documented default of 3.
+    local max_retries="$AGENT_POST_IMPL_REVIEW_MAX_RETRIES"
+    if ! [[ "$max_retries" =~ ^[0-9]+$ ]]; then
+        log "WARN: AGENT_POST_IMPL_REVIEW_MAX_RETRIES='${max_retries}' is not a non-negative integer; using 3"
+        max_retries=3
+    fi
+
+    _ledger_init
+    local retries=0
+    while true; do
+        set_heartbeat "review-pass-$((retries + 1))"
+        if ! run_post_impl_review; then
+            return 1
+        fi
+        _ledger_merge_review "$POST_IMPL_REVIEW_JSON"
+        _ledger_commit "review pass $((retries + 1))"
+
+        local open
+        open=$(_ledger_blocking_open_count)
+        if [ "$open" -eq 0 ]; then
+            log "Review loop: clean after $((retries + 1)) review pass(es), ${retries} retry session(s)"
+            return 0
+        fi
+
+        if [ "$retries" -ge "$max_retries" ]; then
+            log "Review loop: cap reached (${max_retries} retries) with ${open} open blocking finding(s)"
+            return 2
+        fi
+
+        retries=$((retries + 1))
+        set_heartbeat "retry-${retries}"
+        if ! run_post_impl_retry_session "$impl_tools"; then
+            return 1
+        fi
+        _ledger_apply_dispositions "$RETRY_DISPOSITIONS_JSON"
+        _ledger_commit "retry ${retries} dispositions"
+    done
 }
