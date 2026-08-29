@@ -178,10 +178,23 @@ AGENT_ALLOWED_TOOLS_IMPLEMENT=Read,Write,Edit,Bash(bun *),Bash(git *)
 AGENT_MODEL_IMPLEMENT=claude-sonnet-4-6
 AGENT_MODEL_ADVERSARIAL_PLAN=claude-sonnet-4-6
 
-# Review gate toggles (defaults: all true)
+# Review gate toggles (defaults: true / true / 3 / 2)
 AGENT_ADVERSARIAL_PLAN_REVIEW=true
 AGENT_POST_IMPL_REVIEW=true
-AGENT_POST_IMPL_REVIEW_MAX_RETRIES=1
+AGENT_POST_IMPL_REVIEW_MAX_RETRIES=3
+AGENT_TEST_GATE_MAX_RETRIES=2
+
+# Per-phase invocation flags (phases: ADVERSARIAL_PLAN, IMPLEMENT, TEST_FIX,
+# POST_IMPL_REVIEW, POST_IMPL_RETRY). All optional; budget is limitless unless set.
+AGENT_BUDGET_USD=10                  # global cap; AGENT_BUDGET_USD_<PHASE> overrides
+AGENT_BUDGET_USD_IMPLEMENT=8
+AGENT_EFFORT_IMPLEMENT=high
+AGENT_PERMISSION_MODE_IMPLEMENT=dontAsk
+AGENT_JSON_SCHEMA_POST_IMPL_REVIEW=  # empty disables that phase's --json-schema
+AGENT_MCP_CONFIG=                    # path → --mcp-config + --strict-mcp-config
+AGENT_STRICT_MCP=true                # --strict-mcp-config with no config file
+AGENT_SESSION_PERSISTENCE=false      # default: --no-session-persistence
+AGENT_ADD_DIRS=                      # extra --add-dir paths (space-separated)
 
 # Allowlist extensions (comma-separated domains)
 PAL_ALLOWLIST_EXTRA_DOMAINS=some.private.registry.example.com
@@ -530,6 +543,31 @@ Migration cost when those conditions are met: rebase Dockerfile's `BASE_IMAGE` t
 
 - Build a Windows-host-only path that requires Windows Docker Desktop on the user's primary machine. Remote Docker daemon is the supported path — a Linux/macOS laptop can target a Windows box's Docker for v2 workloads.
 - Re-implement features that live in `claude-agent-dispatch` (GitHub Actions orchestration, label state machine, Discord/Slack bots). sandbox-pal trades on the local/skill-driven niche; the Actions-runner niche is upstream's.
+
+### 9.5 Execution mode: container-only (decision, #30)
+
+**Decided 2026-08-29** (jnurre64/sandbox-pal#30; design in
+`docs/superpowers/specs/2026-08-29-upstream-batch-adoption-design.md` §2.1).
+sandbox-pal does **not** offer a host-native execution mode. Upstream
+`sandbox-pal-action`'s orchestrator mode already covers "phases as `claude -p`
+children on the operator's machine, inheriting everything"; duplicating it
+here would dilute the one promise this project makes — credentials in a
+named volume, phases contained.
+
+Instead the environment gaps are closed deliberately inside the container
+("the middle path"): *inherit identity, memory and skills; gate the tool
+surface explicitly.*
+
+| Channel | Mechanism |
+|---|---|
+| Identity / rules | `~/.config/sandbox-pal/container-CLAUDE.md` → container `~/.claude/CLAUDE.md` (`lib/container-rules.sh`) |
+| Memory (read) | Host auto-memory copied to `/home/agent/memory/<host-slug>/`, root-owned and `go=rX`; `MEMORY.md` injected via `--append-system-prompt`, files readable via `--add-dir` (`lib/memory-sync.sh`, `AGENT_MEMORY_DIR`) |
+| Memory (write) | Never direct. Phases write `.agent-data/memory-proposals/*.md`; the pipeline harvests them to the run dir; `/pal-memory` adopts or discards on the host |
+| Skills | Opt-in by name: `PAL_SYNC_SKILLS=name,name` → `/home/agent/.claude/skills/<name>` (`lib/skills-sync.sh`); default empty |
+| Tool surface | Per-phase `AGENT_ALLOWED_TOOLS_*`, `AGENT_PERMISSION_MODE_<PHASE>`, `AGENT_MCP_CONFIG` / `AGENT_STRICT_MCP` (`--strict-mcp-config`) |
+
+Leftovers that are not part of this decision are tracked as follow-up issues
+linked from #30 (rules staging, upstream #104).
 
 ## 10. Dependencies and reuse
 
