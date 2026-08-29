@@ -109,3 +109,126 @@ teardown() { container_lib_teardown; }
     run get_structured_output '{"result":"plain"}'
     assert_output ""
 }
+
+# ── run_claude flag surface ─────────────────────────────────────
+
+_args() { cat "$FAKE_CLAUDE_ARGS"; }
+
+@test "flags: defaults — json output, disable-slash-commands, no-session-persistence, no budget/effort/schema" {
+    container_lib_source
+    run run_claude "p" "Read" "" "" "IMPLEMENT"
+    assert_success
+    run _args
+    assert_line "--output-format"
+    assert_line "--disable-slash-commands"
+    assert_line "--no-session-persistence"
+    refute_line "--max-budget-usd"
+    refute_line "--effort"
+    refute_line "--permission-mode"
+    refute_line "--json-schema"
+    refute_line "--strict-mcp-config"
+}
+
+@test "flags: per-phase budget, effort, permission mode" {
+    container_lib_source
+    export AGENT_BUDGET_USD_IMPLEMENT=8 AGENT_EFFORT_IMPLEMENT=xhigh AGENT_PERMISSION_MODE_IMPLEMENT=dontAsk
+    run run_claude "p" "Read" "" "" "IMPLEMENT"
+    run _args
+    assert_line "--max-budget-usd"; assert_line "8"
+    assert_line "--effort";         assert_line "xhigh"
+    assert_line "--permission-mode"; assert_line "dontAsk"
+}
+
+@test "flags: AGENT_BUDGET_USD is the global fallback; per-phase wins" {
+    container_lib_source
+    export AGENT_BUDGET_USD=42 AGENT_BUDGET_USD_POST_IMPL_REVIEW=3
+    run run_claude "p" "Read" "" "" "IMPLEMENT";        run _args; assert_line "42"
+    run run_claude "p" "Read" "" "" "POST_IMPL_REVIEW"; run _args; assert_line "3"; refute_line "42"
+}
+
+@test "flags: AGENT_MCP_CONFIG adds --mcp-config + --strict-mcp-config; AGENT_STRICT_MCP=true adds strict alone" {
+    container_lib_source
+    export AGENT_MCP_CONFIG="$T/mcp.json"
+    run run_claude "p" "Read"; run _args
+    assert_line "--mcp-config"; assert_line "$T/mcp.json"; assert_line "--strict-mcp-config"
+    unset AGENT_MCP_CONFIG; export AGENT_STRICT_MCP=true
+    run run_claude "p" "Read"; run _args
+    refute_line "--mcp-config"; assert_line "--strict-mcp-config"
+}
+
+@test "flags: AGENT_SESSION_PERSISTENCE=true drops --no-session-persistence" {
+    container_lib_source
+    export AGENT_SESSION_PERSISTENCE=true
+    run run_claude "p" "Read"; run _args
+    refute_line "--no-session-persistence"
+}
+
+@test "flags: AGENT_ADD_DIRS and AGENT_MEMORY_DIR become --add-dir; memory index is appended to the system prompt" {
+    container_lib_source
+    mkdir -p "$T/extra" "$T/mem"
+    printf '# Memory Index\n- [x](x.md) — hook\n' > "$T/mem/MEMORY.md"
+    export AGENT_ADD_DIRS="$T/extra" AGENT_MEMORY_DIR="$T/mem"
+    run run_claude "p" "Read"; run _args
+    assert_line "--add-dir"; assert_line "$T/extra"; assert_line "$T/mem"
+    assert_line "--append-system-prompt"
+    assert_output --partial "Shared Project Memory"
+    assert_output --partial "- [x](x.md) — hook"
+    assert_output --partial "read-only"
+}
+
+@test "flags: --json-schema carries the compact schema when the file exists; missing file warns and continues" {
+    container_lib_source
+    printf '{ "type": "object",\n "required": ["action"] }\n' > "$T/s.json"
+    run run_claude "p" "Read" "" "$T/s.json" "POST_IMPL_REVIEW"
+    assert_success
+    run _args
+    assert_line "--json-schema"
+    assert_line '{"type":"object","required":["action"]}'
+    run run_claude "p" "Read" "" "$T/missing.json" "POST_IMPL_REVIEW"
+    assert_success
+    run _args; refute_line "--json-schema"
+    run cat "$LOG_FILE"; assert_output --partial "schema file not found"
+}
+
+@test "flags: model override and AGENT_MODEL fallback" {
+    container_lib_source
+    export AGENT_MODEL=claude-sonnet-5
+    run run_claude "p" "Read"; run _args; assert_line "claude-sonnet-5"
+    run run_claude "p" "Read" "claude-opus-5"; run _args; assert_line "claude-opus-5"; refute_line "claude-sonnet-5"
+}
+
+@test "flags: max-turns and disallowed tools defaults" {
+    container_lib_source
+    run run_claude "p" "Read"; run _args
+    assert_line "--max-turns"; assert_line "50"
+    assert_line "--disallowedTools"; assert_line "mcp__github__*"
+}
+
+@test "load_prompt: built-in, worktree-relative override, absolute override, missing" {
+    container_lib_source
+    run load_prompt "implement"
+    assert_success
+    assert_output --partial "approved plan"
+    mkdir -p "$WORKTREE_DIR/.pal/prompts"
+    echo "custom rel" > "$WORKTREE_DIR/.pal/prompts/x.md"
+    run load_prompt "implement" ".pal/prompts/x.md"; assert_output "custom rel"
+    echo "custom abs" > "$T/abs.md"
+    run load_prompt "implement" "$T/abs.md"; assert_output "custom abs"
+    run load_prompt "does-not-exist"
+    assert_failure
+}
+
+@test "shims: set_heartbeat is a no-op; preserve_branch pushes BRANCH_NAME and tolerates failure" {
+    container_lib_source
+    run set_heartbeat "anything"; assert_success; assert_output ""
+    # no origin remote → push fails → returns 1, logs a WARN, does not abort
+    run preserve_branch
+    assert_failure
+    run cat "$LOG_FILE"; assert_output --partial "WARN: could not push agent/issue-42"
+    bare="$T/origin.git"; git init -q --bare "$bare"
+    git -C "$WORKTREE_DIR" remote add origin "$bare"
+    git -C "$WORKTREE_DIR" checkout -q -b "$BRANCH_NAME"   # a real worktree lives on BRANCH_NAME
+    run preserve_branch
+    assert_success
+    run git -C "$bare" branch --list "agent/issue-42"; assert_output --partial "agent/issue-42"
+}
