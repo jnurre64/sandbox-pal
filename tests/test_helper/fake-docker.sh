@@ -87,7 +87,7 @@ exit 0
 SHIM
     chmod +x "$FAKE_DOCKER_DIR/docker"
     export PATH="$FAKE_DOCKER_DIR:$PATH"
-    export FAKE_DOCKER_LOG FAKE_DOCKER_STATE
+    export FAKE_DOCKER_DIR FAKE_DOCKER_LOG FAKE_DOCKER_STATE
 }
 
 fake_docker_teardown() {

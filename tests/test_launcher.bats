@@ -71,3 +71,41 @@ teardown() {
     run grep -- "CLAUDE_CODE_OAUTH_TOKEN" "$FAKE_DOCKER_LOG"
     assert_failure
 }
+
+@test "_pal_launcher_env_args forwards AGENT_MEMORY_DIR when set and omits it otherwise" {
+    unset AGENT_MEMORY_DIR
+    local -a args=()
+    GH_TOKEN=ghp_x _pal_launcher_env_args run-1 args
+    run printf '%s\n' "${args[@]}"
+    refute_line --partial "AGENT_MEMORY_DIR"
+
+    export AGENT_MEMORY_DIR=/home/agent/memory/-home-me-repos-foo
+    args=()
+    GH_TOKEN=ghp_x _pal_launcher_env_args run-1 args
+    run printf '%s\n' "${args[@]}"
+    assert_line "AGENT_MEMORY_DIR=/home/agent/memory/-home-me-repos-foo"
+}
+
+@test "pal_launch_sync passes the synced memory dir to docker exec" {
+    fake_docker_set_running
+    mkdir -p "$HOME/.claude/projects/-home-me-repos-foo/memory"
+    echo "# idx" > "$HOME/.claude/projects/-home-me-repos-foo/memory/MEMORY.md"
+    unset AGENT_MEMORY_DIR
+    GH_TOKEN=ghp_x run pal_launch_sync implement owner/repo 42 /home/me/repos/foo run-test-2
+    assert_success
+    run grep -- "^exec .*-e AGENT_MEMORY_DIR=/home/agent/memory/-home-me-repos-foo .*run-pipeline.sh" "$FAKE_DOCKER_LOG"
+    assert_success
+}
+
+@test "pal_launch_sync and pal_launch_async sync PAL_SYNC_SKILLS before exec" {
+    fake_docker_set_running
+    mkdir -p "$HOME/.claude/skills/alpha"; echo "# a" > "$HOME/.claude/skills/alpha/SKILL.md"
+    export PAL_SYNC_SKILLS=alpha
+    GH_TOKEN=ghp_x run pal_launch_sync implement owner/repo 42 /home/me/repos/foo run-test-3
+    assert_success
+    run grep -cE '^cp .*sandbox-pal-workspace:/home/agent/.claude/skills/alpha$' "$FAKE_DOCKER_LOG"; assert_output "1"
+    : > "$FAKE_DOCKER_LOG"
+    GH_TOKEN=ghp_x run pal_launch_async implement owner/repo 42 /home/me/repos/foo run-test-4
+    assert_success
+    run grep -cE '^cp .*sandbox-pal-workspace:/home/agent/.claude/skills/alpha$' "$FAKE_DOCKER_LOG"; assert_output "1"
+}

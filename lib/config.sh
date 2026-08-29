@@ -10,6 +10,7 @@
 # Optional non-secret knobs live in ~/.config/sandbox-pal/config.env:
 #   PAL_SYNC_MEMORIES     (default true)
 #   PAL_SYNC_TRANSCRIPTS  (default false — *.jsonl are secret-tier)
+#   PAL_SYNC_SKILLS       (default empty — comma-separated ~/.claude/skills names to sync)
 #   PAL_CPUS              (default unset = uncapped)
 #   PAL_MEMORY            (default unset = uncapped)
 
@@ -24,7 +25,8 @@ pal_load_config() {
 
     : "${PAL_SYNC_MEMORIES:=true}"
     : "${PAL_SYNC_TRANSCRIPTS:=false}"
-    export PAL_SYNC_MEMORIES PAL_SYNC_TRANSCRIPTS
+    : "${PAL_SYNC_SKILLS:=}"
+    export PAL_SYNC_MEMORIES PAL_SYNC_TRANSCRIPTS PAL_SYNC_SKILLS
     [ -n "${PAL_CPUS:-}" ]   && export PAL_CPUS
     [ -n "${PAL_MEMORY:-}" ] && export PAL_MEMORY
 

@@ -9,11 +9,13 @@
 - **Memory proposals:** phases write durable learnings to `.agent-data/memory-proposals/*.md`; the pipeline copies them to the run directory (`memory_proposals` in `status.json`) and lists them in the PR body. Triage tooling (`/pal-memory`) arrives with the next release.
 - `status.json` gains `review_ledger`, `permission_denials`, `memory_proposals`; `review_concerns_*` are now derived from the ledger.
 - Host-runnable BATS coverage for the container lib (`tests/test_container_lib.bats`, `tests/test_run_pipeline.bats`) with a fake `claude`.
+- **Container middle path (#30 decision: container-only, no host-native mode).** Host auto-memory now lands in the workspace at `/home/agent/memory/<host-slug>/` as a root-owned, read-only directory (`lib/memory-sync.sh`); the launcher passes `AGENT_MEMORY_DIR` so the runner injects `MEMORY.md` into the system prompt and exposes the files with `--add-dir`. Selected host skills sync in by name with `PAL_SYNC_SKILLS=name,name` (`lib/skills-sync.sh`; default empty). New `/pal-memory [run-id] [--adopt <file> | --discard <file>]` triages the memory proposals harvested to `~/.local/share/sandbox-pal/runs/<run-id>/memory-proposals/` — the only path by which agent learnings reach host memory. Design doc §9.5 records the decision.
 
 ### Changed
 - `AGENT_IMPL_MAX_RETRIES` is retired (the test gate replaces the inline TDD retry loop); setting it logs a warning.
 - `scripts/diff-upstream.sh` defaults to `~/repos/sandbox-pal-action`; `UPSTREAM.md` now names that project and lists every local modification.
 - `tests/test_container_pipeline.bats` gates on a running, logged-in workspace instead of the removed `CLAUDE_CODE_OAUTH_TOKEN`.
+- Memory is no longer copied into the container's writable project slug (`~/.claude/projects/<run-slug>/memory`); the container's claude cannot auto-load or edit it.
 - **Brand rename:** `claude-pal` → `sandbox-pal`. The plugin, Docker image (`sandbox-pal:latest`), named volumes (`sandbox-pal-claude`, `sandbox-pal-workspace`), host config path (`~/.config/sandbox-pal/`), and marketplace identifiers are all renamed. The `pal-*` command/skill names, `PAL_*` env vars, and per-repo `.pal/` config directory are unchanged. Version stays at 0.5.0.
 - `marketplace.json` now pins `source.ref: "main"` rather than a tag — the `v0.5.0` tag's committed `plugin.json` still says `claude-pal`, so tracking `main` keeps the installed plugin consistent with its manifest until the next release.
 

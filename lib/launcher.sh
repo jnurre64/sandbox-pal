@@ -2,13 +2,14 @@
 # shellcheck shell=bash
 # Backend adapter: launches the pipeline inside the long-running sandbox-pal
 # workspace container via `docker exec`. Requires the workspace to be running
-# and authenticated (enforced upstream by preflight). Memory and
-# container-CLAUDE.md are synced before exec.
+# and authenticated (enforced upstream by preflight). Memory,
+# container-CLAUDE.md and opt-in skills (PAL_SYNC_SKILLS) are synced before exec.
 
 # _pal_launcher_env_args
 #
 # Build the `-e` flag array for docker exec. Emits GH_TOKEN and RUN_ID, plus
 # any AGENT_TEST_*/PAL_ALLOWLIST_EXTRA_DOMAINS env vars that are set, plus
+# AGENT_MEMORY_DIR (set by pal_memory_sync_to_container), plus
 # any AGENT_/PAL_/DOCKER_HOST= lines from per-repo .pal/config.env (cwd).
 #
 # Usage: _pal_launcher_env_args <run_id> <out_array_name>
@@ -20,6 +21,7 @@ _pal_launcher_env_args() {
     [ -n "${AGENT_TEST_COMMAND:-}" ]          && _out+=(-e "AGENT_TEST_COMMAND=${AGENT_TEST_COMMAND}")
     [ -n "${AGENT_TEST_SETUP_COMMAND:-}" ]    && _out+=(-e "AGENT_TEST_SETUP_COMMAND=${AGENT_TEST_SETUP_COMMAND}")
     [ -n "${PAL_ALLOWLIST_EXTRA_DOMAINS:-}" ] && _out+=(-e "PAL_ALLOWLIST_EXTRA_DOMAINS=${PAL_ALLOWLIST_EXTRA_DOMAINS}")
+    [ -n "${AGENT_MEMORY_DIR:-}" ]            && _out+=(-e "AGENT_MEMORY_DIR=${AGENT_MEMORY_DIR}")
 
     # Per-repo config (if present in current working directory's .pal/). Users
     # rely on this for AGENT_TEST_COMMAND etc. set per-project.
@@ -52,12 +54,15 @@ pal_launch_sync() {
     . "${CLAUDE_PLUGIN_ROOT}/lib/memory-sync.sh"
     # shellcheck source=/dev/null
     . "${CLAUDE_PLUGIN_ROOT}/lib/container-rules.sh"
+    # shellcheck source=/dev/null
+    . "${CLAUDE_PLUGIN_ROOT}/lib/skills-sync.sh"
 
     pal_workspace_ensure_running
 
     local container_workdir="/home/agent/work/${run_id}"
     pal_memory_sync_to_container "$host_repo_path" "$container_workdir"
     pal_container_rules_sync_to_container
+    pal_skills_sync_to_container
 
     local run_dir
     run_dir=$(pal_run_dir "$run_id")
@@ -98,12 +103,15 @@ pal_launch_async() {
     . "${CLAUDE_PLUGIN_ROOT}/lib/memory-sync.sh"
     # shellcheck source=/dev/null
     . "${CLAUDE_PLUGIN_ROOT}/lib/container-rules.sh"
+    # shellcheck source=/dev/null
+    . "${CLAUDE_PLUGIN_ROOT}/lib/skills-sync.sh"
 
     pal_workspace_ensure_running
 
     local container_workdir="/home/agent/work/${run_id}"
     pal_memory_sync_to_container "$host_repo_path" "$container_workdir"
     pal_container_rules_sync_to_container
+    pal_skills_sync_to_container
 
     local run_dir
     run_dir=$(pal_run_dir "$run_id")
