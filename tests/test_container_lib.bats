@@ -78,3 +78,34 @@ teardown() { container_lib_teardown; }
     run cat "$STATUS_DIR"/claude-stdout-*.log
     refute_output --partial "$GH_TOKEN"
 }
+
+# ── permission denials / structured output ──────────────────────
+
+@test "REGRESSION #105: permission denials are logged per phase and rendered for the PR body" {
+    container_lib_source
+    env='{"result":"x","subtype":"success","is_error":false,"permission_denials":[{"tool_name":"Bash","tool_input":{"command":"npm test"}},{"tool_name":"Edit","tool_input":{"file_path":"src/a.js"}}]}'
+    run extract_permission_denials "$env"
+    assert_line --index 0 "Bash: npm test"
+    assert_line --index 1 "Edit: src/a.js"
+    log_permission_denials "$env" "implement"
+    run cat "$WORKTREE_DIR/.agent-data/permission-denials.log"
+    assert_line --index 0 "[implement] Bash: npm test"
+    run denials_report_section
+    assert_output --partial "### Permission Denials"
+    assert_output --partial "[implement] Edit: src/a.js"
+    assert_output --partial ".pal/config.env"
+}
+
+@test "denials: no section when nothing was denied" {
+    container_lib_source
+    run denials_report_section
+    assert_output ""
+}
+
+@test "structured output: get_structured_output prefers .structured_output" {
+    container_lib_source
+    run get_structured_output '{"result":"Here is my answer: {\"action\":\"nope\"}","structured_output":{"action":"approved"}}'
+    assert_output '{"action":"approved"}'
+    run get_structured_output '{"result":"plain"}'
+    assert_output ""
+}

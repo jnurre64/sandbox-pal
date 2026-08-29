@@ -40,6 +40,55 @@ redact_secrets() {
     printf '%s\n' "$text"
 }
 
+# ─── Surface permission denials ──────────────────────────────────
+# Denied tool calls are the largest silent time sink in a headless
+# loop: the phase retries variants and burns its turn cap on nothing.
+# Every denial is an allow-list gap to fix in config. (upstream #105)
+extract_permission_denials() {
+    local result="$1"
+    printf '%s' "$result" | jq -r '
+        (.permission_denials // [])[]
+        | .tool_name + ": "
+          + ((.tool_input.command // .tool_input.file_path // .tool_input.pattern // "unknown") | tostring)
+    ' 2>/dev/null || true
+}
+
+# Log each denial and append it (phase-tagged) to the run-scoped denials
+# file, which the PR body and status.json read.
+log_permission_denials() {
+    local result="$1" phase="${2:-phase}"
+    local denials
+    denials=$(extract_permission_denials "$result")
+    [ -z "$denials" ] && return 0
+    log "WARN: ${phase}: permission denial(s) — each is an allow-list gap costing turns:"
+    local line
+    while IFS= read -r line; do
+        log "  denied: $line"
+        if [ -n "${WORKTREE_DIR:-}" ] && [ -d "$WORKTREE_DIR" ]; then
+            mkdir -p "${WORKTREE_DIR}/.agent-data"
+            printf '[%s] %s\n' "$phase" "$line" >> "${WORKTREE_DIR}/.agent-data/permission-denials.log"
+        fi
+    done <<< "$denials"
+    return 0
+}
+
+# Markdown block of the run's accumulated denials. Empty when none.
+denials_report_section() {
+    local denials_file="${WORKTREE_DIR}/.agent-data/permission-denials.log"
+    [ -s "$denials_file" ] || return 0
+    # shellcheck disable=SC2016  # literal markdown code fence, not an expansion
+    printf '\n### Permission Denials\n\nEach denial is an allow-list gap that cost the agent turns — fix it in `.pal/config.env` (`AGENT_ALLOWED_TOOLS_IMPLEMENT` / `AGENT_ALLOWED_TOOLS_TRIAGE`):\n\n```\n%s\n```\n' \
+        "$(head -30 "$denials_file")"
+}
+
+# ─── Structured output (upstream #108) ───────────────────────────
+get_structured_output() {
+    local result="$1"
+    printf '%s' "$result" \
+        | jq -c '.structured_output // empty | select(. != null)' 2>/dev/null \
+        || true
+}
+
 run_claude() {
     local prompt="$1"
     local allowed_tools="${2:-Read,Write,Edit,Bash(git *),Bash(ls *)}"
