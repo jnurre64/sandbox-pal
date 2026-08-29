@@ -9,6 +9,7 @@
 #
 # Build the `-e` flag array for docker exec. Emits GH_TOKEN and RUN_ID, plus
 # any AGENT_TEST_*/PAL_ALLOWLIST_EXTRA_DOMAINS env vars that are set, plus
+# AGENT_MEMORY_DIR (set by pal_memory_sync_to_container), plus
 # any AGENT_/PAL_/DOCKER_HOST= lines from per-repo .pal/config.env (cwd).
 #
 # Usage: _pal_launcher_env_args <run_id> <out_array_name>
@@ -20,6 +21,7 @@ _pal_launcher_env_args() {
     [ -n "${AGENT_TEST_COMMAND:-}" ]          && _out+=(-e "AGENT_TEST_COMMAND=${AGENT_TEST_COMMAND}")
     [ -n "${AGENT_TEST_SETUP_COMMAND:-}" ]    && _out+=(-e "AGENT_TEST_SETUP_COMMAND=${AGENT_TEST_SETUP_COMMAND}")
     [ -n "${PAL_ALLOWLIST_EXTRA_DOMAINS:-}" ] && _out+=(-e "PAL_ALLOWLIST_EXTRA_DOMAINS=${PAL_ALLOWLIST_EXTRA_DOMAINS}")
+    [ -n "${AGENT_MEMORY_DIR:-}" ]            && _out+=(-e "AGENT_MEMORY_DIR=${AGENT_MEMORY_DIR}")
 
     # Per-repo config (if present in current working directory's .pal/). Users
     # rely on this for AGENT_TEST_COMMAND etc. set per-project.
