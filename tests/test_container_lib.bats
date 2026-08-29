@@ -232,3 +232,18 @@ _args() { cat "$FAKE_CLAUDE_ARGS"; }
     assert_success
     run git -C "$bare" branch --list "agent/issue-42"; assert_output --partial "agent/issue-42"
 }
+
+# ── schemas ─────────────────────────────────────────────────────
+
+@test "schemas: the three phase schemas are valid JSON and match upstream 04cef68 byte-for-byte" {
+    for s in adversarial-plan post-impl-review post-impl-retry; do
+        run jq -e '.required | index("action")' "$REPO_ROOT/image/opt/pal/schemas/$s.json"
+        assert_success
+    done
+    if [ -d "$HOME/repos/sandbox-pal-action/.git" ]; then
+        for s in adversarial-plan post-impl-review post-impl-retry; do
+            run diff <(git -C "$HOME/repos/sandbox-pal-action" show "04cef68:schemas/$s.json") "$REPO_ROOT/image/opt/pal/schemas/$s.json"
+            assert_success
+        done
+    fi
+}
