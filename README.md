@@ -22,11 +22,11 @@ See `docs/superpowers/specs/2026-04-18-sandbox-pal-design.md` for the design doc
 1. You brainstorm and write an implementation plan (ideally via `superpowers:brainstorming` + `superpowers:writing-plans`).
 2. You run `/sandbox-pal:pal-plan` to post that plan to a GitHub issue with an `<!-- agent-plan -->` marker.
 3. You run `/sandbox-pal:pal-implement <issue#>`. The plugin `docker exec`s into the long-running `sandbox-pal-workspace` container, which:
-   - Runs an **adversarial plan review** (fresh Claude session, read-only, verifies the plan matches the issue)
-   - Implements the plan using **TDD with a retry loop** that feeds failing tests back to the model
-   - Runs a **post-implementation review** (fresh session, read-only, checks the diff for scope creep / test quality)
-   - Retries once if the post-review finds concerns
-   - Pushes the branch and opens a PR
+   - Runs an **adversarial plan review** (fresh session, read-only, structured verdict against the issue)
+   - **Implements** the plan and pushes the work branch immediately, so a later failure never loses the commits (the next run resumes from that branch)
+   - Runs the **pre-PR test gate**: `AGENT_TEST_COMMAND` with bounded `test-fix` sessions
+   - Runs the **post-implementation review loop** — review → fix → review against a stamped findings ledger, up to `AGENT_POST_IMPL_REVIEW_MAX_RETRIES` cycles; if blocking findings survive, the PR still opens with a ⚠ header listing them
+   - Opens the PR with the ledger summary, any permission denials, and any memory proposals in the body
 
 Claude credentials live in a Docker-managed named volume inside the workspace — never on the host, never in env vars.
 
@@ -70,16 +70,17 @@ Only `GH_TOKEN` lives in your host shell.
    /sandbox-pal:pal-login     # interactive browser flow, run once per workspace lifetime
    ```
 
-### Resource caps (optional)
+### Host config (optional)
 
 Knobs in `~/.config/sandbox-pal/config.env`:
 
     PAL_CPUS=2.0
     PAL_MEMORY=4g
-    PAL_SYNC_MEMORIES=true
+    PAL_SYNC_MEMORIES=true      # read-only copy of this repo's auto-memory into each run
     PAL_SYNC_TRANSCRIPTS=false
+    PAL_SYNC_SKILLS=            # comma-separated ~/.claude/skills names to sync (default: none)
 
-Changes apply on `/pal-workspace restart`.
+Caps apply on `/pal-workspace restart`; sync knobs apply on the next run. Full reference: [`docs/configuration.md`](docs/configuration.md).
 
 ### Terms of Service
 
@@ -90,13 +91,16 @@ expose the container to other users.
 
 ## Per-repo config (non-secret)
 
-Optional per-repository settings live in `<your-project>/.pal/config.env`. These are non-secret knobs (e.g. `PAL_TEST_CMD=...`, `AGENT_BASE_BRANCH=main`, `DOCKER_HOST=...`) that the launcher forwards to the workspace for the duration of a run. Do not put credentials there — Claude credentials live in the workspace's named volume, and `GH_TOKEN` lives in your shell.
+Optional per-repository settings live in `<your-project>/.pal/config.env` — every `AGENT_*`, `PAL_*` and `DOCKER_HOST=` line is forwarded into the pipeline for runs from that repo: the test gate (`AGENT_TEST_COMMAND`), review-gate caps, per-phase model / budget / effort / permission mode / MCP config, prompt overrides, extra egress domains. Template: [`.pal/config.env.example`](.pal/config.env.example); reference: [`docs/configuration.md`](docs/configuration.md). Do not put credentials there.
 
 ## Plugin skills and commands
 
 - `/sandbox-pal:pal-brainstorm [idea]` — full ideation → PR flow (depends on the `superpowers` plugin)
 - `/sandbox-pal:pal-plan [issue#] [--file <path>]` — publish a plan file to a GitHub issue
 - `/sandbox-pal:pal-implement <issue#>` — dispatch the pipeline against the workspace container
+- `/sandbox-pal:pal-revise <pr#>` — feed PR review feedback back through the pipeline
+- `/sandbox-pal:pal-status [run-id]`, `/sandbox-pal:pal-logs <run-id>`, `/sandbox-pal:pal-cancel <run-id>` — async run management
+- `/sandbox-pal:pal-memory [run-id] [--adopt <file> | --discard <file>]` — triage memory proposals from runs (the only path by which agent learnings reach host memory)
 - `/sandbox-pal:pal-setup` — guided workspace + credential setup (interactive)
 - `/sandbox-pal:pal-workspace` — manage the workspace container (`start | stop | restart | status | edit-rules`)
 - `/sandbox-pal:pal-login` — mint Claude credentials inside the workspace
