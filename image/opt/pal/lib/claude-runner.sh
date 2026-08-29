@@ -46,12 +46,57 @@ run_claude() {
     fi
 }
 
+# ─── Parse Claude JSON output ────────────────────────────────────
+# `is_error` is authoritative and `subtype` is not a cause: an API-error
+# envelope carries is_error:true together with subtype:"success", so the
+# error check must come first and a non-error_* subtype is never
+# interpolated as a reason. (upstream #102)
 parse_claude_output() {
     local result="$1"
+    if [ "$(printf '%s' "$result" | jq -r '.is_error // false' 2>/dev/null)" = "true" ]; then
+        local detail
+        detail=$(printf '%s' "$result" | jq -r \
+            '[.terminal_reason, .api_error_status, (.result // .result_text)]
+             | map(select(. != null and . != "") | tostring) | join(" — ")' 2>/dev/null)
+        echo "Agent phase failed: API error${detail:+ — ${detail}}"
+        return 0
+    fi
     local out
-    out=$(echo "$result" | jq -r '.result // .result_text // empty' 2>/dev/null || echo "")
+    out=$(printf '%s' "$result" | jq -r '.result // .result_text // empty' 2>/dev/null || true)
+    if [ -z "$out" ]; then
+        out=$(printf '%s' "$result" | jq -r '.subtype // empty' 2>/dev/null || true)
+        case "$out" in
+            error_*) out="Agent stopped: $out" ;;
+            *) out="" ;;
+        esac
+    fi
     if [ -z "$out" ]; then
         out="$result"
     fi
     echo "$out"
+}
+
+# ─── Classify how a phase ended ──────────────────────────────────
+# fail_fast:   an API error — no later phase can recover it.
+# recoverable: a turn/budget cap or timeout — what fix-up phases are for.
+# ok:          a normal ending.
+classify_claude_result() {
+    local result="$1"
+    if [ "$(printf '%s' "$result" | jq -r '.is_error // false' 2>/dev/null)" = "true" ]; then
+        echo "fail_fast"
+        return 0
+    fi
+    local subtype
+    subtype=$(printf '%s' "$result" | jq -r '.subtype // empty' 2>/dev/null || echo "")
+    case "$subtype" in
+        error_*) echo "recoverable" ;;
+        *)
+            # run_claude's synthetic timeout envelope carries .error, not .is_error
+            if [ "$(printf '%s' "$result" | jq -r '.error // false' 2>/dev/null)" = "true" ]; then
+                echo "recoverable"
+            else
+                echo "ok"
+            fi
+            ;;
+    esac
 }

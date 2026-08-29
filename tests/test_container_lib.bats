@@ -19,3 +19,36 @@ teardown() { container_lib_teardown; }
     assert_line --index 0 "-p"
     assert_line --index 1 "prompt"
 }
+
+# ── parse / classify ────────────────────────────────────────────
+
+@test "REGRESSION #102: API-error envelope with subtype=success is reported as an API error" {
+    container_lib_source
+    env='{"is_error":true,"subtype":"success","terminal_reason":"api_error","api_error_status":529,"result":"Overloaded"}'
+    run parse_claude_output "$env"
+    assert_output "Agent phase failed: API error — api_error — 529 — Overloaded"
+    run classify_claude_result "$env"
+    assert_output "fail_fast"
+}
+
+@test "classify: error_max_turns is recoverable" {
+    container_lib_source
+    run classify_claude_result '{"is_error":false,"subtype":"error_max_turns"}'
+    assert_output "recoverable"
+    run parse_claude_output '{"is_error":false,"subtype":"error_max_turns"}'
+    assert_output "Agent stopped: error_max_turns"
+}
+
+@test "classify: synthetic timeout envelope (.error) is recoverable" {
+    container_lib_source
+    run classify_claude_result '{"result":"claude timed out or errored (exit code 124)","error":true}'
+    assert_output "recoverable"
+}
+
+@test "classify: normal envelope is ok and parse returns .result" {
+    container_lib_source
+    run classify_claude_result '{"is_error":false,"subtype":"success","result":"done"}'
+    assert_output "ok"
+    run parse_claude_output '{"is_error":false,"subtype":"success","result":"done"}'
+    assert_output "done"
+}
