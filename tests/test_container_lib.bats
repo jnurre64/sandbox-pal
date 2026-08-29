@@ -365,3 +365,62 @@ _review() { # structured review envelope
     run cat "$LOG_FILE"; assert_output --partial "made no commits"
     run cat "$FAKE_GH_LOG"; assert_output --partial "Test Failure (Pre-PR Gate)"; refute_output --partial "agent:failed"
 }
+
+# ── prompts ─────────────────────────────────────────────────────
+
+@test "prompts: vendored files match upstream 04cef68 except the enumerated local lines" {
+    P="$REPO_ROOT/image/opt/pal/prompts"
+    [ -f "$P/test-fix.md" ]
+    for f in implement post-impl-retry test-fix; do
+        run grep -c "memory-proposals/" "$P/$f.md"; assert_output "1"
+    done
+    run grep -c "memory-proposals/" "$P/post-impl-review.md"; assert_output "0"
+    run head -1 "$P/implement.md"
+    assert_output --partial "sandbox-pal container"
+    run grep -c "Prior Work on This Branch" "$P/implement.md"; assert_output "1"
+    run grep -c "You cannot write anything under .claude/" "$P/implement.md"; assert_output "1"
+    run grep -c '"action": "addressed"' "$P/post-impl-retry.md"; assert_output "1"
+    run grep -c "AGENT_REVIEW_LEDGER" "$P/post-impl-review.md"; assert_output "1"
+    if [ -d "$HOME/repos/sandbox-pal-action/.git" ]; then
+        # Exact diff budget: adversarial-plan identical; post-impl-review identical;
+        # the other three differ only by the appended paragraph (and implement's intro).
+        run diff <(git -C "$HOME/repos/sandbox-pal-action" show 04cef68:prompts/adversarial-plan.md) "$P/adversarial-plan.md"; assert_success
+        run diff <(git -C "$HOME/repos/sandbox-pal-action" show 04cef68:prompts/post-impl-review.md) "$P/post-impl-review.md"; assert_success
+    fi
+}
+
+# ── worktree ────────────────────────────────────────────────────
+
+@test "worktree: resumes from origin/<branch> when it exists, else branches from origin/main; excludes .agent-data" {
+    # shellcheck disable=SC1091
+    . "$LIB_DIR/worktree.sh"
+    origin="$T/origin.git"; git init -q --bare -b main "$origin"
+    seed="$T/seed"; git clone -q "$origin" "$seed"
+    git -C "$seed" -c user.email=t@e -c user.name=t commit -q --allow-empty -m base
+    git -C "$seed" push -q origin HEAD:main
+    # gh stub: `gh repo clone <repo> <dir>` → git clone from $origin
+    cat > "$T/bin/gh" <<FAKE
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$FAKE_GH_LOG"
+case "\$1 \$2" in
+  "repo clone") git clone -q "$origin" "\$4" ;;
+esac
+exit 0
+FAKE
+    chmod +x "$T/bin/gh"
+    export HOME="$T/home"; mkdir -p "$HOME"
+    export WORKTREE_DIR="$T/wt1"; export GH_TOKEN=x
+    setup_worktree "owner/repo" 42 implement
+    assert_equal "$BRANCH_NAME" "agent/issue-42"
+    run git -C "$WORKTREE_DIR" log --oneline; assert_line --partial "base"
+    run cat "$(git -C "$WORKTREE_DIR" rev-parse --git-path info/exclude)"; assert_line ".agent-data/"
+
+    # push a commit on the branch, wipe, re-setup → resumes with that commit
+    git -C "$WORKTREE_DIR" -c user.email=t@e -c user.name=t commit -q --allow-empty -m "prior work"
+    git -C "$WORKTREE_DIR" push -q origin agent/issue-42
+    git -C "$HOME/.cache/repos/owner/repo" worktree remove --force "$WORKTREE_DIR"
+    export WORKTREE_DIR="$T/wt2"
+    setup_worktree "owner/repo" 42 implement
+    run git -C "$WORKTREE_DIR" log --oneline; assert_line --partial "prior work"
+    run cat "$LOG_FILE"; assert_output --partial "resuming from origin/agent/issue-42"
+}

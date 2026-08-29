@@ -45,3 +45,6 @@ Read the CLAUDE.md file for project conventions and how to run tests.
 
 ## Final Output
 Output a short plain-text summary of what you changed and why — or why the failure is not fixable from this repository.
+
+## Memory proposals
+Memory files under the memory directory are read-only. If you learn something durable about this repository that a future session should know (a non-obvious convention, a trap, a decision), write it as a proposal: one file per fact at `.agent-data/memory-proposals/<kebab-slug>.md`, with the same frontmatter as a memory file (`name`, `description`, `metadata.type`). Do not commit these files. A human triages them after the run.
