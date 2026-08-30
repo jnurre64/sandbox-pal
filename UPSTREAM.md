@@ -36,6 +36,7 @@ Not vendored: `triage.json`, `reply.json`, `validate.json`, `cleanup.json` (no s
 | Local path | Source | Modifications |
 |---|---|---|
 | `image/opt/pal/lib/review-gates.sh` | `scripts/lib/review-gates.sh` | header comment; every `set_label "agent:failed"` → `STATUS_OUTCOME="failure"` + a specific `STATUS_FAILURE_REASON`; `set_label "agent:needs-info"` → `STATUS_OUTCOME="clarification_needed"`; `notify` call removed from `run_test_gate`; comment wording "re-label / re-dispatch" → "re-run `/pal-implement`". Function bodies otherwise identical. |
+| `image/opt/pal/lib/rules-staging.sh` | `scripts/lib/rules-staging.sh` | none |
 
 ## Ported helpers (`image/opt/pal/lib/claude-runner.sh`)
 
@@ -59,5 +60,4 @@ Not a byte copy — the container runner is the local analogue of upstream
 
 ## Deliberately not vendored
 
-- `rules-staging.sh` (#104) — follow-up issue; the prompt rule text is kept.
 - `liveness.sh` (#106), orchestrator mode and `sp-*` skills (#107), `cleanup.md` phase, `notify.sh`.

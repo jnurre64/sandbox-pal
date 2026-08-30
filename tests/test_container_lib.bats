@@ -499,3 +499,12 @@ _seed_rules_file() {
     run diff <(git -C "$HOME/repos/sandbox-pal-action" show 04cef68:scripts/lib/rules-staging.sh) "$LIB_DIR/rules-staging.sh"
     assert_success
 }
+
+@test "rules: diff-upstream.sh MAP and UPSTREAM.md track rules-staging.sh" {
+    run grep -c '\["image/opt/pal/lib/rules-staging.sh"\]="scripts/lib/rules-staging.sh"' "$REPO_ROOT/scripts/diff-upstream.sh"
+    assert_output "1"
+    run grep -c '^| `image/opt/pal/lib/rules-staging.sh` | `scripts/lib/rules-staging.sh` | none |' "$REPO_ROOT/UPSTREAM.md"
+    assert_output "1"
+    run grep -c 'rules-staging.sh.*follow-up issue' "$REPO_ROOT/UPSTREAM.md"
+    assert_output "0"
+}

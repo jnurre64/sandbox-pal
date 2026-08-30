@@ -19,6 +19,7 @@ declare -A MAP=(
     ["image/opt/pal/prompts/implement.md"]="prompts/implement.md"
     ["image/opt/pal/prompts/test-fix.md"]="prompts/test-fix.md"
     ["image/opt/pal/lib/review-gates.sh"]="scripts/lib/review-gates.sh"
+    ["image/opt/pal/lib/rules-staging.sh"]="scripts/lib/rules-staging.sh"
     ["image/opt/pal/schemas/adversarial-plan.json"]="schemas/adversarial-plan.json"
     ["image/opt/pal/schemas/post-impl-review.json"]="schemas/post-impl-review.json"
     ["image/opt/pal/schemas/post-impl-retry.json"]="schemas/post-impl-retry.json"
