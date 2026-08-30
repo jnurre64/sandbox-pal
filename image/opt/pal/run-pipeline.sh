@@ -107,6 +107,10 @@ write_status() {
     if [ -d "$STATUS_DIR/memory-proposals" ]; then
         proposals=$(find "$STATUS_DIR/memory-proposals" -maxdepth 1 -name '*.md' -printf '%f\n' | sort | jq -Rsc 'split("\n") | map(select(. != ""))')
     fi
+    local rules_applied='[]'
+    if [ -n "${RULES_APPLIED:-}" ]; then
+        rules_applied=$(printf '%s\n' "$RULES_APPLIED" | tr ' ' '\n' | jq -Rsc 'split("\n") | map(select(. != ""))')
+    fi
     jq -n \
         --arg phase "$STATUS_PHASE" \
         --arg outcome "$STATUS_OUTCOME" \
@@ -121,6 +125,7 @@ write_status() {
         --argjson ledger "$ledger_json" \
         --argjson denials "$denials" \
         --argjson proposals "$proposals" \
+        --argjson rules_applied "$rules_applied" \
         --arg event_type "$EVENT_TYPE" \
         --arg repo "$REPO" \
         --argjson number "$NUMBER" \
@@ -129,7 +134,7 @@ write_status() {
           started_at: $started_at, completed_at: $completed_at,
           pr_number: $pr_number, pr_url: $pr_url, commits: $commits,
           review_concerns_addressed: $addressed, review_concerns_unresolved: $unresolved,
-          review_ledger: $ledger, permission_denials: $denials, memory_proposals: $proposals,
+          review_ledger: $ledger, permission_denials: $denials, memory_proposals: $proposals, rules_applied: $rules_applied,
           event_type: $event_type, repo: $repo, number: $number}' \
         > "$STATUS_DIR/status.json.tmp"
     mv "$STATUS_DIR/status.json.tmp" "$STATUS_DIR/status.json"
@@ -170,6 +175,7 @@ trap 'cleanup_on_exit' EXIT
 # --- Source lib files ------------------------------------------
 . "$LIB_DIR/claude-runner.sh"
 . "$LIB_DIR/review-gates.sh"
+. "$LIB_DIR/rules-staging.sh"
 . "$LIB_DIR/firewall.sh"
 . "$LIB_DIR/worktree.sh"
 . "$LIB_DIR/fetch-context.sh"
@@ -246,6 +252,12 @@ fi
 
 start_sha=$(git -C "$WORKTREE_DIR" rev-parse HEAD)
 
+# Stage .claude/rules/*.md into .agent-data/rules/ so the phase can propose
+# rule edits despite Claude Code's .claude/** write guard (upstream #104).
+# Once per run: .agent-data/ persists across the test-gate and review-retry
+# sessions and is git-excluded by setup_worktree.
+stage_rules_files
+
 set_heartbeat "implement"
 result=$(run_claude "$impl_prompt" "$AGENT_ALLOWED_TOOLS_IMPLEMENT" "$AGENT_MODEL_IMPLEMENT" "" "IMPLEMENT")
 log_permission_denials "$result" "implement"
@@ -283,6 +295,10 @@ run_post_impl_review_loop "$AGENT_ALLOWED_TOOLS_IMPLEMENT" || review_rc=$?
 if [ "$review_rc" -eq 1 ]; then
     exit 1
 fi
+
+# Copy back staged rules edits that differ and commit them (counted in
+# STATUS_COMMITS, pushed with the branch).
+apply_rules_files
 
 end_sha=$(git -C "$WORKTREE_DIR" rev-parse HEAD)
 STATUS_COMMITS=$(git -C "$WORKTREE_DIR" log --format='%h' "${start_sha}..${end_sha}" | jq -R . | jq -sc . 2>/dev/null || echo '[]')
