@@ -109,3 +109,30 @@ teardown() {
     assert_success
     run grep -cE '^cp .*sandbox-pal-workspace:/home/agent/.claude/skills/alpha$' "$FAKE_DOCKER_LOG"; assert_output "1"
 }
+
+@test "_pal_launcher_env_args forwards the PR 1/2 AGENT_* knobs from .pal/config.env, skipping comments" {
+    local repo="$TMPHOME/proj"; mkdir -p "$repo/.pal"
+    cat > "$repo/.pal/config.env" <<'CFG'
+# comment line
+AGENT_BUDGET_USD_IMPLEMENT=8
+AGENT_EFFORT_POST_IMPL_REVIEW=xhigh
+AGENT_PERMISSION_MODE_IMPLEMENT=dontAsk
+AGENT_STRICT_MCP=true
+AGENT_TEST_GATE_MAX_RETRIES=1
+AGENT_JSON_SCHEMA_POST_IMPL_REVIEW=
+# AGENT_MODEL_IMPLEMENT=commented-out
+PAL_ALLOWLIST_EXTRA_DOMAINS=registry.example.com
+CFG
+    cd "$repo"
+    local -a args=()
+    GH_TOKEN=ghp_x _pal_launcher_env_args run-1 args
+    run printf '%s\n' "${args[@]}"
+    assert_line "AGENT_BUDGET_USD_IMPLEMENT=8"
+    assert_line "AGENT_EFFORT_POST_IMPL_REVIEW=xhigh"
+    assert_line "AGENT_PERMISSION_MODE_IMPLEMENT=dontAsk"
+    assert_line "AGENT_STRICT_MCP=true"
+    assert_line "AGENT_TEST_GATE_MAX_RETRIES=1"
+    assert_line "AGENT_JSON_SCHEMA_POST_IMPL_REVIEW="      # empty value still forwarded (disables the schema)
+    assert_line "PAL_ALLOWLIST_EXTRA_DOMAINS=registry.example.com"
+    refute_line --partial "commented-out"
+}

@@ -16,6 +16,7 @@
 - `scripts/diff-upstream.sh` defaults to `~/repos/sandbox-pal-action`; `UPSTREAM.md` now names that project and lists every local modification.
 - `tests/test_container_pipeline.bats` gates on a running, logged-in workspace instead of the removed `CLAUDE_CODE_OAUTH_TOKEN`.
 - Memory is no longer copied into the container's writable project slug (`~/.claude/projects/<run-slug>/memory`); the container's claude cannot auto-load or edit it.
+- Docs: new `docs/configuration.md` (global + per-repo knobs, per-phase flags, memory/skills/proposals); `.pal/config.env.example` rewritten to the current surface; README pipeline description and skills list updated.
 - **Brand rename:** `claude-pal` → `sandbox-pal`. The plugin, Docker image (`sandbox-pal:latest`), named volumes (`sandbox-pal-claude`, `sandbox-pal-workspace`), host config path (`~/.config/sandbox-pal/`), and marketplace identifiers are all renamed. The `pal-*` command/skill names, `PAL_*` env vars, and per-repo `.pal/` config directory are unchanged. Version stays at 0.5.0.
 - `marketplace.json` now pins `source.ref: "main"` rather than a tag — the `v0.5.0` tag's committed `plugin.json` still says `claude-pal`, so tracking `main` keeps the installed plugin consistent with its manifest until the next release.
 

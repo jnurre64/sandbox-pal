@@ -133,10 +133,10 @@ See: https://code.claude.com/docs/en/legal-and-compliance
 
 ## What's not in this release
 
-v0.x ships the core flow (plan → implement → PR) in sync mode, plus the workspace-container lifecycle. Planned for later releases:
+v0.x ships the full pipeline (adversarial review → implement → test gate → review loop → PR) in sync and async mode, the workspace-container lifecycle, read-only memory and opt-in skills sync, and `/pal-memory` triage. See [`configuration.md`](configuration.md) for every knob. Not yet in this release:
 
-- Async mode + `/sandbox-pal:pal-status`, `/sandbox-pal:pal-logs`, `/sandbox-pal:pal-cancel`
-- Expanded `/sandbox-pal:pal-revise` coverage for PR-review follow-ups
+- Repo-rules staging (phases editing `.claude/**` rules files) — upstream #104; tracked as a follow-up
+- Windows-container backend (`PAL_BACKEND=docker-windows`)
 
 ## Contributor / local dev loop
 
