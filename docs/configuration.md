@@ -105,6 +105,15 @@ not exist on the host warn and are skipped. Nothing syncs by default.
 `/pal-workspace edit-rules` opens `~/.config/sandbox-pal/container-CLAUDE.md`,
 which is copied to the workspace's `~/.claude/CLAUDE.md` before each run.
 
+Repo-level rules (`<project>/.claude/rules/*.md`) can be updated by a run.
+Claude Code blocks headless writes under `.claude/`, so the pipeline stages
+copies under `.agent-data/rules/` before the implement session, and after the
+review loop copies back any staged file that changed and commits it as
+`chore(agent): apply staged rules updates — <names>` on the PR branch. Only
+files that already exist in `.claude/rules/` with names matching
+`^[A-Za-z0-9._-]+\.md$` are applied; a phase cannot invent a rules file.
+Applied names appear as `rules_applied` in `status.json`.
+
 ## Design decision: container-only
 
 sandbox-pal does not offer a host-native execution mode; the three channels

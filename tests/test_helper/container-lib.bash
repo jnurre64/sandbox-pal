@@ -82,6 +82,8 @@ container_lib_source() {
     . "$LIB_DIR/claude-runner.sh"
     # shellcheck disable=SC1091
     . "$LIB_DIR/review-gates.sh"
+    # shellcheck disable=SC1091
+    . "$LIB_DIR/rules-staging.sh"
 }
 
 # Single-envelope mode: every claude call returns this JSON.

@@ -140,3 +140,38 @@ _structured() { printf '{"result":"","subtype":"success","is_error":false,"struc
     assert_success
     assert_output --partial "AGENT_IMPL_MAX_RETRIES is no longer used"
 }
+
+@test "implement: staged .agent-data/rules edit is applied as a chore(agent) commit, counted, pushed, and listed in status.json" {
+    # Seed a rules file on origin/main so stage_rules_files has something to stage.
+    mkdir -p "$seed/.claude/rules"
+    printf 'original rule\n' > "$seed/.claude/rules/x.md"
+    git -C "$seed" add .claude/rules/x.md
+    git -C "$seed" -c user.email=t@e -c user.name=t commit -q -m "add rules"
+    git -C "$seed" push -q origin HEAD:main
+
+    fake_claude_enqueue "$(_structured '{"action":"approved"}')"
+    fake_claude_enqueue "$(_ok 'implemented')" \
+        'echo x > x.txt; git add x.txt; git commit -q -m "feat: x"; test -f .agent-data/rules/x.md || exit 9; printf "edited rule\n" > .agent-data/rules/x.md'
+    fake_claude_enqueue "$(_structured '{"action":"approved","verified_fixed":[],"reopened":[],"findings":[]}')"
+
+    run "$PIPELINE" implement owner/repo 42
+    assert_success
+
+    S="$STATUS_DIR/status.json"
+    run jq -r '.outcome' "$S"; assert_output "success"
+    run jq -r '.commits | length' "$S"; assert_output "3"          # feat + ledger + rules
+    run jq -c '.rules_applied' "$S"; assert_output '["x.md"]'
+    run git -C "$ORIGIN" log --format=%s agent/issue-42
+    assert_line --index 0 "chore(agent): apply staged rules updates — x.md"
+    run git -C "$ORIGIN" show agent/issue-42:.claude/rules/x.md; assert_output "edited rule"
+    run git -C "$ORIGIN" ls-tree -r --name-only agent/issue-42; refute_output --partial ".agent-data/rules"   # staged copies never land in git (ledger does, by design)
+}
+
+@test "implement: rules_applied is an empty array when the repo has no .claude/rules" {
+    fake_claude_enqueue "$(_structured '{"action":"approved"}')"
+    fake_claude_enqueue "$(_ok 'implemented')" 'echo x > x.txt; git add x.txt; git commit -q -m "feat: x"'
+    fake_claude_enqueue "$(_structured '{"action":"approved","verified_fixed":[],"reopened":[],"findings":[]}')"
+    run "$PIPELINE" implement owner/repo 42
+    assert_success
+    run jq -c '.rules_applied' "$STATUS_DIR/status.json"; assert_output '[]'
+}

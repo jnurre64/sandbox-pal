@@ -424,3 +424,87 @@ FAKE
     run git -C "$WORKTREE_DIR" log --oneline; assert_line --partial "prior work"
     run cat "$LOG_FILE"; assert_output --partial "resuming from origin/agent/issue-42"
 }
+
+# ── rules staging (upstream #104) ───────────────────────────────
+
+_seed_rules_file() {
+    # $1 = name, $2 = content. Commits into the fixture worktree.
+    mkdir -p "$WORKTREE_DIR/.claude/rules"
+    printf '%s\n' "$2" > "$WORKTREE_DIR/.claude/rules/$1"
+    git -C "$WORKTREE_DIR" add -A
+    git -C "$WORKTREE_DIR" commit -q -m "add rules $1"
+}
+
+@test "rules: stage_rules_files copies .claude/rules/*.md into .agent-data/rules/" {
+    container_lib_source
+    _seed_rules_file style.md "original rule text"
+    stage_rules_files
+    [ -f "$WORKTREE_DIR/.agent-data/rules/style.md" ]
+    run cat "$WORKTREE_DIR/.agent-data/rules/style.md"; assert_output "original rule text"
+    run cat "$LOG_FILE"; assert_output --partial "Staged 1 rules file(s)"
+}
+
+@test "rules: stage_rules_files is a no-op when the repo has no .claude/rules directory" {
+    container_lib_source
+    stage_rules_files
+    [ ! -d "$WORKTREE_DIR/.agent-data/rules" ]
+}
+
+@test "rules: apply_rules_files copies back a modified staged file and commits it" {
+    container_lib_source
+    _seed_rules_file style.md "original rule text"
+    stage_rules_files
+    printf 'edited by the phase\n' > "$WORKTREE_DIR/.agent-data/rules/style.md"
+    apply_rules_files
+    run cat "$WORKTREE_DIR/.claude/rules/style.md"; assert_output "edited by the phase"
+    run git -C "$WORKTREE_DIR" log -1 --format=%s
+    assert_output "chore(agent): apply staged rules updates — style.md"
+    [ "$RULES_APPLIED" = "style.md" ]
+    run git -C "$WORKTREE_DIR" status --porcelain -- .claude; assert_output ""   # nothing left dirty under .claude/
+}
+
+@test "REGRESSION upstream v1.2.0: a staged file with no counterpart in .claude/rules/ is not applied" {
+    container_lib_source
+    _seed_rules_file style.md "original rule text"
+    stage_rules_files
+    printf 'invented by the phase\n' > "$WORKTREE_DIR/.agent-data/rules/invented.md"
+    apply_rules_files
+    [ ! -f "$WORKTREE_DIR/.claude/rules/invented.md" ]
+    [ -z "$RULES_APPLIED" ]
+    run cat "$LOG_FILE"; assert_output --partial "no counterpart"
+}
+
+@test "rules: apply_rules_files ignores staged names outside the allow-list pattern" {
+    container_lib_source
+    _seed_rules_file "bad name.md" "spaced original"
+    stage_rules_files
+    printf 'edited\n' > "$WORKTREE_DIR/.agent-data/rules/bad name.md"
+    apply_rules_files
+    run cat "$WORKTREE_DIR/.claude/rules/bad name.md"; assert_output "spaced original"
+    run cat "$LOG_FILE"; assert_output --partial "outside the allow-list pattern"
+}
+
+@test "rules: apply_rules_files makes no commit when nothing differs" {
+    container_lib_source
+    _seed_rules_file style.md "original rule text"
+    stage_rules_files
+    before=$(git -C "$WORKTREE_DIR" rev-parse HEAD)
+    apply_rules_files
+    [ "$(git -C "$WORKTREE_DIR" rev-parse HEAD)" = "$before" ]
+    [ -z "$RULES_APPLIED" ]
+}
+
+@test "rules: vendored rules-staging.sh is byte-identical to upstream 04cef68" {
+    if [ ! -d "$HOME/repos/sandbox-pal-action/.git" ]; then skip "upstream clone not present"; fi
+    run diff <(git -C "$HOME/repos/sandbox-pal-action" show 04cef68:scripts/lib/rules-staging.sh) "$LIB_DIR/rules-staging.sh"
+    assert_success
+}
+
+@test "rules: diff-upstream.sh MAP and UPSTREAM.md track rules-staging.sh" {
+    run grep -c '\["image/opt/pal/lib/rules-staging.sh"\]="scripts/lib/rules-staging.sh"' "$REPO_ROOT/scripts/diff-upstream.sh"
+    assert_output "1"
+    run grep -c '^| `image/opt/pal/lib/rules-staging.sh` | `scripts/lib/rules-staging.sh` | none |' "$REPO_ROOT/UPSTREAM.md"
+    assert_output "1"
+    run grep -c 'rules-staging.sh.*follow-up issue' "$REPO_ROOT/UPSTREAM.md"
+    assert_output "0"
+}
