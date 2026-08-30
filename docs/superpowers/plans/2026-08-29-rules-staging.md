@@ -33,7 +33,7 @@
 - Consumes: fixture globals `WORKTREE_DIR` (a real git repo with identity set), `log` (from the fixture on the host / `run-pipeline.sh` in the container), `git`.
 - Produces: `stage_rules_files` (no args, always returns 0), `apply_rules_files` (no args, always returns 0), globals `RULES_SOURCE_DIR=".claude/rules"`, `RULES_STAGING_DIR=".agent-data/rules"`, `RULES_APPLIED` (space-separated applied basenames, `""` when nothing applied). Task 2 relies on all of these.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_container_lib.bats` (after the `worktree` section at the end of the file):
 
@@ -116,7 +116,7 @@ _seed_rules_file() {
 
 Note: the fixture's `container_lib_setup` already creates `WORKTREE_DIR` as a git repo on `main` with identity set and an initial empty commit, so `_seed_rules_file` only needs to add and commit.
 
-- [ ] **Step 2: Make the fixture source the new lib**
+- [x] **Step 2: Make the fixture source the new lib**
 
 In `tests/test_helper/container-lib.bash`, `container_lib_source` becomes:
 
@@ -131,12 +131,12 @@ container_lib_source() {
 }
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `./tests/bats/bin/bats tests/test_container_lib.bats -f "rules"`
 Expected: every existing test that calls `container_lib_source` now fails too (file missing) — that's fine at this step; the 7 new `rules` tests FAIL with `No such file or directory` for `rules-staging.sh`.
 
-- [ ] **Step 4: Vendor the file verbatim**
+- [x] **Step 4: Vendor the file verbatim**
 
 ```bash
 git -C ~/repos/sandbox-pal-action show 04cef68:scripts/lib/rules-staging.sh > image/opt/pal/lib/rules-staging.sh
@@ -145,12 +145,12 @@ diff <(git -C ~/repos/sandbox-pal-action show 04cef68:scripts/lib/rules-staging.
 
 Do **not** edit the file. Check whether the other vendored libs are executable (`ls -l image/opt/pal/lib/`) and match the mode (`chmod` accordingly) — mode is not part of the diff check.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `./tests/bats/bin/bats tests/test_container_lib.bats`
 Expected: all PASS, including the 7 new `rules` tests.
 
-- [ ] **Step 6: Lint + full suite, then commit**
+- [x] **Step 6: Lint + full suite, then commit**
 
 ```bash
 shellcheck -S info $(find . -name '*.sh' -not -path '*/bats/*' -not -path '*/.git/*') && ./tests/bats/bin/bats tests/
@@ -173,7 +173,7 @@ Not yet wired into the pipeline."
 - Consumes: `stage_rules_files`, `apply_rules_files`, `RULES_APPLIED` from Task 1.
 - Produces: `status.json` gains `rules_applied` (JSON array of basenames, `[]` when none). Task 3 documents it.
 
-- [ ] **Step 1: Write the failing e2e test**
+- [x] **Step 1: Write the failing e2e test**
 
 Append to `tests/test_run_pipeline.bats`:
 
@@ -216,12 +216,12 @@ Append to `tests/test_run_pipeline.bats`:
 
 Ordering note: `apply_rules_files` runs after the review loop, so the rules commit is the newest commit on the branch (after the ledger commit) — hence `--index 0` on the log.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `./tests/bats/bin/bats tests/test_run_pipeline.bats -f "rules"`
 Expected: first test FAILS (the fake implement session exits 9 because `.agent-data/rules/x.md` was never staged → `empty_diff`/failure); second FAILS with `.rules_applied` = `null`.
 
-- [ ] **Step 3: Source the lib in `run-pipeline.sh`**
+- [x] **Step 3: Source the lib in `run-pipeline.sh`**
 
 In the `# --- Source lib files` block, add after `. "$LIB_DIR/review-gates.sh"`:
 
@@ -229,7 +229,7 @@ In the `# --- Source lib files` block, add after `. "$LIB_DIR/review-gates.sh"`:
 . "$LIB_DIR/rules-staging.sh"
 ```
 
-- [ ] **Step 4: Stage before implement**
+- [x] **Step 4: Stage before implement**
 
 Immediately before `set_heartbeat "implement"`:
 
@@ -241,7 +241,7 @@ Immediately before `set_heartbeat "implement"`:
 stage_rules_files
 ```
 
-- [ ] **Step 5: Apply after the review loop, before `STATUS_COMMITS`**
+- [x] **Step 5: Apply after the review loop, before `STATUS_COMMITS`**
 
 Replace:
 
@@ -271,7 +271,7 @@ STATUS_COMMITS=...
 
 (Keep the existing `STATUS_COMMITS=` line untouched.)
 
-- [ ] **Step 6: Report `rules_applied` in `write_status`**
+- [x] **Step 6: Report `rules_applied` in `write_status`**
 
 In `write_status`, after the `proposals` block and before the `jq -n`:
 
@@ -286,12 +286,12 @@ Add `--argjson rules_applied "$rules_applied" \` next to `--argjson proposals`, 
 
 `RULES_APPLIED` is defined by the sourced lib, but `write_status` runs from the EXIT trap and can fire before the lib is sourced (e.g. an early failure), so the `${RULES_APPLIED:-}` default is required under `set -u`.
 
-- [ ] **Step 7: Run the tests to verify they pass**
+- [x] **Step 7: Run the tests to verify they pass**
 
 Run: `./tests/bats/bin/bats tests/test_run_pipeline.bats`
 Expected: all PASS, including both new tests and the unchanged happy-path (`.commits | length` still `2`).
 
-- [ ] **Step 8: Lint + full suite, then commit**
+- [x] **Step 8: Lint + full suite, then commit**
 
 ```bash
 shellcheck -S info $(find . -name '*.sh' -not -path '*/bats/*' -not -path '*/.git/*') && ./tests/bats/bin/bats tests/
@@ -318,7 +318,7 @@ STATUS_COMMITS and pushed with the PR. status.json gains rules_applied."
 - Consumes: nothing new.
 - Produces: nothing; documentation only.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to the `rules staging` section of `tests/test_container_lib.bats`:
 
@@ -333,12 +333,12 @@ Append to the `rules staging` section of `tests/test_container_lib.bats`:
 }
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `./tests/bats/bin/bats tests/test_container_lib.bats -f "diff-upstream"`
 Expected: FAIL (`grep -c` prints `0` for the first two).
 
-- [ ] **Step 3: `scripts/diff-upstream.sh`**
+- [x] **Step 3: `scripts/diff-upstream.sh`**
 
 Add to `MAP` after the `review-gates.sh` line:
 
@@ -348,7 +348,7 @@ Add to `MAP` after the `review-gates.sh` line:
 
 Then run `scripts/diff-upstream.sh` and confirm `rules-staging.sh` reports identical (other rows may still report their enumerated local diffs — that is the pre-existing state).
 
-- [ ] **Step 4: `UPSTREAM.md`**
+- [x] **Step 4: `UPSTREAM.md`**
 
 In the Libraries table add a row after `review-gates.sh`:
 
@@ -362,7 +362,7 @@ In "Deliberately not vendored", delete the line:
 - `rules-staging.sh` (#104) — follow-up issue; the prompt rule text is kept.
 ```
 
-- [ ] **Step 5: `docs/configuration.md`**
+- [x] **Step 5: `docs/configuration.md`**
 
 Under `## Identity and rules`, after the existing `/pal-workspace edit-rules` paragraph, add:
 
@@ -377,7 +377,7 @@ files that already exist in `.claude/rules/` with names matching
 Applied names appear as `rules_applied` in `status.json`.
 ```
 
-- [ ] **Step 6: `CHANGELOG.md`**
+- [x] **Step 6: `CHANGELOG.md`**
 
 Under `## [Unreleased]` → `### Added`, after the "Memory proposals" bullet, add:
 
@@ -385,12 +385,12 @@ Under `## [Unreleased]` → `### Added`, after the "Memory proposals" bullet, ad
 - **Rules staging** (vendored `rules-staging.sh`, upstream #104): `.claude/rules/*.md` are staged to `.agent-data/rules/` before the implement session; edits to the staged copies are applied and committed by the pipeline as `chore(agent): apply staged rules updates — <names>` after the review loop. `status.json` gains `rules_applied`.
 ```
 
-- [ ] **Step 7: Run the test to verify it passes**
+- [x] **Step 7: Run the test to verify it passes**
 
 Run: `./tests/bats/bin/bats tests/test_container_lib.bats -f "rules"`
 Expected: all PASS.
 
-- [ ] **Step 8: Lint + full suite, then commit**
+- [x] **Step 8: Lint + full suite, then commit**
 
 ```bash
 shellcheck -S info $(find . -name '*.sh' -not -path '*/bats/*' -not -path '*/.git/*') && ./tests/bats/bin/bats tests/
@@ -402,7 +402,7 @@ git commit -m "docs: track rules-staging.sh in UPSTREAM.md and diff-upstream; do
 
 ### Task 4: Open the PR
 
-- [ ] **Step 1: Push and open**
+- [x] **Step 1: Push and open**
 
 ```bash
 git push -u origin feature/35-rules-staging
@@ -411,7 +411,7 @@ GH_TOKEN=$(cat ~/.config/gh-tokens/sandbox-pal-token) gh pr create --repo jnurre
   --body "Closes #35"
 ```
 
-- [ ] **Step 2: Confirm CI is green** (`gh pr checks --watch` with the same token).
+- [x] **Step 2: Confirm CI is green** (`gh pr checks --watch` with the same token).
 
 ---
 
